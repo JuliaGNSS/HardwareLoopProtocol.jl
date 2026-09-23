@@ -30,7 +30,7 @@ end
         @test sizeof(T) <= HLP.COMMAND_PAYLOAD_BYTES
     end
     @test HLP.layout_hash() == HLP.layout_hash()
-    @test HLP.layout_hash() != HLP._fnv1a(1)
+    @test HLP.layout_hash() != HLP._fnv1a_mix(0xcbf29ce484222325, 1)
 end
 
 @testset "A heap-backed segment carries its configuration" begin
