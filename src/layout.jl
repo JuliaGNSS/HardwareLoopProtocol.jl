@@ -124,19 +124,24 @@ end
 
 # FNV-1a over the record geometry, so a segment written by one build of this
 # package is refused by another whose structs differ. Deliberately not
-# `Base.hash`: the two processes need not run the same Julia version.
-function _fnv1a(values::Vararg{Integer})
-    h = 0xcbf29ce484222325
-    for v in values
-        x = UInt64(v)
-        for shift = 0:8:56
-            h = (h ⊻ ((x >> shift) & 0xff)) * 0x00000100000001b3
-        end
+# `Base.hash`: the two processes need not run the same Julia version. Mixed in
+# one value at a time — no splatting — so `--trim=safe` can resolve every call.
+@inline function _fnv1a_mix(h::UInt64, v::Integer)
+    x = UInt64(v)
+    for shift = 0:8:56
+        h = (h ⊻ ((x >> shift) & 0xff)) * 0x00000100000001b3
     end
     h
 end
 
-_struct_geometry(::Type{T}) where {T} = (sizeof(T), fieldcount(T), fieldoffset.(T, 1:fieldcount(T))...)
+function _hash_struct(h::UInt64, ::Type{T}) where {T}
+    h = _fnv1a_mix(h, sizeof(T))
+    h = _fnv1a_mix(h, fieldcount(T))
+    for i = 1:fieldcount(T)
+        h = _fnv1a_mix(h, fieldoffset(T, i))
+    end
+    h
+end
 
 """
     layout_hash() -> UInt64
@@ -146,25 +151,25 @@ receiver built against different definitions than the loop process refuses the
 segment instead of misreading it.
 """
 function layout_hash()
-    _fnv1a(
-        PROTOCOL_VERSION,
-        HEADER_BYTES,
-        RING_HEADER_BYTES,
-        SNAPSHOT_BYTES,
-        EVENT_SLOT_BYTES,
-        COMMAND_SLOT_BYTES,
-        NAME_BYTES,
-        _struct_geometry(EventTag)...,
-        _struct_geometry(RecordEvent)...,
-        _struct_geometry(BitEvent)...,
-        _struct_geometry(EpochStateEvent)...,
-        _struct_geometry(StatusEvent)...,
-        _struct_geometry(TapsEvent)...,
-        _struct_geometry(CommandTag)...,
-        _struct_geometry(ArmCommand)...,
-        _struct_geometry(ConfigureCommand)...,
-        _struct_geometry(BandEntry)...,
-    )
+    h = 0xcbf29ce484222325
+    h = _fnv1a_mix(h, PROTOCOL_VERSION)
+    h = _fnv1a_mix(h, HEADER_BYTES)
+    h = _fnv1a_mix(h, RING_HEADER_BYTES)
+    h = _fnv1a_mix(h, SNAPSHOT_BYTES)
+    h = _fnv1a_mix(h, EVENT_SLOT_BYTES)
+    h = _fnv1a_mix(h, COMMAND_SLOT_BYTES)
+    h = _fnv1a_mix(h, NAME_BYTES)
+    h = _hash_struct(h, EventTag)
+    h = _hash_struct(h, RecordEvent)
+    h = _hash_struct(h, BitEvent)
+    h = _hash_struct(h, EpochStateEvent)
+    h = _hash_struct(h, StatusEvent)
+    h = _hash_struct(h, TapsEvent)
+    h = _hash_struct(h, CommandTag)
+    h = _hash_struct(h, ArmCommand)
+    h = _hash_struct(h, ConfigureCommand)
+    h = _hash_struct(h, BandEntry)
+    h
 end
 
 # Every payload has to fit its slot, and every tag its 16 bytes. Checked once at

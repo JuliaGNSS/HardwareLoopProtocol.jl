@@ -1,3 +1,6 @@
+[![CI](https://github.com/JuliaGNSS/HardwareLoopProtocol.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/JuliaGNSS/HardwareLoopProtocol.jl/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/JuliaGNSS/HardwareLoopProtocol.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/JuliaGNSS/HardwareLoopProtocol.jl)
+
 # HardwareLoopProtocol.jl
 
 The shared-memory protocol between a GNSS receiver process and the

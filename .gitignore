@@ -1,4 +1,6 @@
-Manifest.toml
 *.jl.cov
 *.jl.*.cov
 *.jl.mem
+/Manifest.toml
+test/Manifest.toml
+build/

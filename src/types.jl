@@ -29,10 +29,10 @@ function FixedName(s::Union{AbstractString,Symbol})
     ncodeunits(str) <= NAME_BYTES ||
         throw(ArgumentError("name $(repr(str)) is longer than $NAME_BYTES bytes"))
     codes = codeunits(str)
-    FixedName(ntuple(i -> i <= length(codes) ? codes[i] : 0x00, NAME_BYTES))
+    FixedName(ntuple(i -> i <= length(codes) ? codes[i] : 0x00, Val(NAME_BYTES)))
 end
 
-FixedName() = FixedName(ntuple(_ -> 0x00, NAME_BYTES))
+FixedName() = FixedName(ntuple(_ -> 0x00, Val(NAME_BYTES)))
 
 function Base.length(n::FixedName)
     len = 0
@@ -308,15 +308,74 @@ struct ArmCommand
 end
 
 """
+    ArmCommand(; signal, prn, carrier_doppler_hz, code_doppler_hz, code_phase_chips,
+               valid_at_sample, tap_sample_shifts, num_taps, sampling_freq_hz, kwargs...)
+
+Keyword form with the receiver's usual defaults: `group_key = signal`,
+`signal_index = 1`, one band and RF input, unit amplitudes, no taps.
+"""
+function ArmCommand(;
+    signal,
+    prn::Integer,
+    carrier_doppler_hz::Real,
+    code_doppler_hz::Real,
+    code_phase_chips::Real,
+    valid_at_sample::Integer,
+    tap_sample_shifts,
+    num_taps::Integer,
+    sampling_freq_hz::Real,
+    group_key = signal,
+    signal_index::Integer = 1,
+    el_sample_spacing::Integer = 0,
+    band::Integer = 1,
+    replica_amplitude::Real = 1.0,
+    code_amplitude::Real = 1.0,
+    carrier_phase_offset::Real = 0.0,
+    carrier_loop_bandwidth_hz::Real = 0.0,
+    code_loop_bandwidth_hz::Real = 0.0,
+    secondary_code_mode::Integer = SECONDARY_PRIMARY_ONLY,
+    rf_input::Integer = 1,
+    device_index::Integer = 1,
+    want_taps::Bool = false,
+)
+    shifts = ntuple(i -> i <= length(tap_sample_shifts) ? Int32(tap_sample_shifts[i]) : Int32(0), Val(5))
+    ArmCommand(
+        FixedName(signal),
+        FixedName(group_key),
+        Int32(prn),
+        Int32(signal_index),
+        Float64(carrier_doppler_hz),
+        Float64(code_doppler_hz),
+        Float64(code_phase_chips),
+        Int64(valid_at_sample),
+        shifts,
+        Int32(num_taps),
+        Int32(el_sample_spacing),
+        Int32(band),
+        Float64(replica_amplitude),
+        Float64(code_amplitude),
+        Float64(carrier_phase_offset),
+        Float64(sampling_freq_hz),
+        Float64(carrier_loop_bandwidth_hz),
+        Float64(code_loop_bandwidth_hz),
+        UInt8(secondary_code_mode),
+        UInt8(rf_input),
+        UInt8(device_index),
+        UInt8(want_taps),
+        UInt32(0),
+    )
+end
+
+"""
     ConfigureCommand
 
-Loop-wide configuration: the fold epoch, the feedback delay, the coherent
+Loop-wide configuration: the fold epoch, the predicted commit lead, the coherent
 accumulation ceiling, the record integration ceiling and which events are
 published. Zero leaves a field unchanged.
 """
 struct ConfigureCommand
     epoch_length_samples::Int64
-    feedback_delay_epochs::Int32
+    commit_lead_samples::Int32
     coherent_code_blocks::Int32
     max_integration_time_s::Float64
     noise_rearm_epochs::Int32

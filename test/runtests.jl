@@ -244,7 +244,7 @@ end
     @test cstatus === :ok
     @test cview.tag.kind == HLP.COMMAND_CONFIGURE && cview.tag.sequence == 77
     cfg = payload(ConfigureCommand, commands, cview)
-    @test cfg.epoch_length_samples == 4000 && cfg.feedback_delay_epochs == 2
+    @test cfg.epoch_length_samples == 4000 && cfg.commit_lead_samples == 2
     commit!(commands, cview)
     @test peek!(commands, CommandTag)[1] === :empty
     @test receiver_pid(seg) > 0
