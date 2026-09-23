@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/JuliaGNSS/HardwareLoopProtocol.jl/compare/v1.0.0...v1.0.1) (2026-09-23)
+
+
+### Bug Fixes
+
+* **segment:** pass open(2)'s mode as the vararg it is ([87cf48f](https://github.com/JuliaGNSS/HardwareLoopProtocol.jl/commit/87cf48f55d246b13984461f6802e47567fd37b15))
+
 # 1.0.0 (2026-09-23)
 
 
