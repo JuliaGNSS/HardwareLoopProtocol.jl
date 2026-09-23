@@ -34,7 +34,11 @@ const MAP_SHARED = Cint(1)
 const MAP_FAILED = Ptr{Cvoid}(-1 % UInt)
 
 function _open_file(path::String, flags::Cint)
-    fd = ccall(:open, Cint, (Cstring, Cint, Cuint), path, flags, Cuint(0o644))
+    # `open(2)` is variadic and the mode is a vararg: spelled as one, or the
+    # Apple arm64 ABI passes it in the wrong place and the file is created with
+    # whatever permissions the stack held (seen as "Permission denied" on the
+    # macOS CI runner).
+    fd = @ccall open(path::Cstring, flags::Cint; Cuint(0o644)::Cuint)::Cint
     fd < 0 && systemerror("open($path)", Libc.errno())
     fd
 end
