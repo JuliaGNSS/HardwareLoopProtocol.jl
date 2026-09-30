@@ -1,6 +1,8 @@
 # Changelog
 
-# [2.0.0](https://github.com/JuliaGNSS/HardwareLoopProtocol.jl/compare/v1.0.1...v2.0.0) (2026-09-29)
+## [1.0.2](https://github.com/JuliaGNSS/HardwareLoopProtocol.jl/compare/v1.0.1...v1.0.2) (2026-09-30)
+
+No changes to the package. Replaces the accidental 2.0.0 release.
 
 ## [1.0.1](https://github.com/JuliaGNSS/HardwareLoopProtocol.jl/compare/v1.0.0...v1.0.1) (2026-09-23)
 
