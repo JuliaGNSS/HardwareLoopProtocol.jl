@@ -4,3 +4,5 @@
 /Manifest.toml
 test/Manifest.toml
 build/
+/docs/build/
+/docs/Manifest.toml
