@@ -298,7 +298,9 @@ loop_heartbeat!(seg::Segment, now_ns = time_ns()) =
 "Stamp the receiver's heartbeat."
 receiver_heartbeat!(seg::Segment, now_ns = time_ns()) =
     store_release!(u64ptr(seg.base, OFF_RECEIVER_HEARTBEAT), UInt64(now_ns))
+"The loop process's last heartbeat in `time_ns()` nanoseconds, or `0` if never stamped."
 loop_heartbeat(seg::Segment) = load_acquire(u64ptr(seg.base, OFF_LOOP_HEARTBEAT))
+"The receiver's last heartbeat in `time_ns()` nanoseconds, or `0` if never stamped."
 receiver_heartbeat(seg::Segment) = load_acquire(u64ptr(seg.base, OFF_RECEIVER_HEARTBEAT))
 
 """
@@ -313,10 +315,22 @@ function heartbeat_alive(seg::Segment, side::Symbol; stale_after_ns = 500_000_00
     Int64(now_ns) - Int64(beat) <= Int64(stale_after_ns)
 end
 
+"""
+    loop_state(seg) -> UInt64
+
+The loop process's lifecycle state, one of `HardwareLoopProtocol.LOOP_STATE_STARTING`
+(set by [`create_segment`](@ref)), `LOOP_STATE_RUNNING`, `LOOP_STATE_STOPPING`,
+`LOOP_STATE_STOPPED` or `LOOP_STATE_FAULT`.
+"""
 loop_state(seg::Segment) = load_acquire(u64ptr(seg.base, OFF_LOOP_STATE))
+"Publish the loop process's lifecycle state; see [`loop_state`](@ref)."
 set_loop_state!(seg::Segment, state::Integer) =
     store_release!(u64ptr(seg.base, OFF_LOOP_STATE), UInt64(state))
+"The process id the loop process recorded with [`set_loop_pid!`](@ref)."
 loop_pid(seg::Segment) = Int(_u64(seg, OFF_LOOP_PID))
+"The process id the receiver recorded with [`set_receiver_pid!`](@ref)."
 receiver_pid(seg::Segment) = Int(_u64(seg, OFF_RECEIVER_PID))
+"Record the loop process's process id in the header."
 set_loop_pid!(seg::Segment, pid::Integer) = _set_u64!(seg, OFF_LOOP_PID, pid)
+"Record the receiver's process id in the header."
 set_receiver_pid!(seg::Segment, pid::Integer) = _set_u64!(seg, OFF_RECEIVER_PID, pid)
