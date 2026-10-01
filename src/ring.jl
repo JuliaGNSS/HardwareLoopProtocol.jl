@@ -62,6 +62,7 @@ _ring_at(base::Ptr{UInt8}) = Ring(
 @inline ring_head(r::Ring) = load_acquire(u64ptr(r.base, RING_OFF_HEAD))
 "The consumer's next index."
 @inline ring_tail(r::Ring) = load_acquire(u64ptr(r.base, RING_OFF_TAIL))
+"The number of slots in the ring (a power of two)."
 @inline ring_capacity(r::Ring) = Int(r.capacity)
 "Slots published and not yet consumed (may exceed the capacity after a lap)."
 @inline ring_available(r::Ring) = Int(ring_head(r) - ring_tail(r))

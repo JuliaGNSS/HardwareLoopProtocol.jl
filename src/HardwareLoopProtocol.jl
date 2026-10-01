@@ -3,11 +3,11 @@
 
 The shared-memory protocol between a GNSS receiver process and the
 allocation-free *loop process* that closes the tracking loops of a hardware
-correlator (GNSSReceiver.jl, `docs/plans/2026-09-22-loop-process.md` §2.5).
+correlator.
 
-The two processes share one memory segment — a file under `/dev/shm`, mapped
-by both — and nothing else: no serialisation, no syscalls on the hot path, no
-futex. The segment holds
+The two processes share one memory segment — a file, conventionally under
+`/dev/shm` on Linux, mapped by both — and nothing else: no serialisation, no
+syscalls on the hot path, no futex. The segment holds
 
   - a **header** (magic, protocol version, layout hash, channel count, the
     band table and both sides' heartbeats), refused on any mismatch;
