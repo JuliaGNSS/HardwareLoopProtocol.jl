@@ -13,6 +13,9 @@ syscalls on the hot path, no futex. The segment holds
     band table and both sides' heartbeats), refused on any mismatch;
   - one **command ring** (receiver → loop): arm, release, configure, shutdown,
     each acknowledged by a status event in the channel's ring;
+  - one loop-wide **nav ring** (loop → receiver) of navigation-solution and
+    per-satellite events, plus a **seqlock snapshot** of the newest solution,
+    used when the loop runs vector tracking ([`navigation_mode`](@ref));
   - per hardware channel one **event ring** (loop → receiver) of fixed-size
     tagged events in loop order — records, bits, epoch states, status — plus a
     **seqlock snapshot** of the newest epoch state for readers that only want
@@ -45,6 +48,8 @@ export PROTOCOL_VERSION,
     EpochStateEvent,
     StatusEvent,
     TapsEvent,
+    NavSolutionEvent,
+    NavSatelliteEvent,
     CommandTag,
     ArmCommand,
     ConfigureCommand,
@@ -78,6 +83,11 @@ export PROTOCOL_VERSION,
     snapshot_slot,
     write_snapshot!,
     read_snapshot,
+    nav_ring,
+    publish_nav_solution!,
+    read_nav_snapshot,
+    navigation_mode,
+    set_navigation_mode!,
     loop_heartbeat!,
     receiver_heartbeat!,
     loop_heartbeat,

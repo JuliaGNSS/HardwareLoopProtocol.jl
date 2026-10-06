@@ -45,6 +45,18 @@ write_snapshot!
 read_snapshot
 ```
 
+## Navigation
+
+```@docs
+navigation_mode
+set_navigation_mode!
+nav_ring
+publish_nav_solution!
+read_nav_snapshot
+NavSolutionEvent
+NavSatelliteEvent
+```
+
 ## Heartbeats, state and process ids
 
 ```@docs

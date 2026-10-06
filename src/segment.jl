@@ -83,6 +83,7 @@ band_count(seg::Segment) = Int(_u32(seg, OFF_BAND_COUNT))
 event_capacity(seg::Segment) = Int(_u32(seg, OFF_EVENT_CAPACITY))
 command_capacity(seg::Segment) = Int(_u32(seg, OFF_COMMAND_CAPACITY))
 device_index(seg::Segment) = Int(_u32(seg, OFF_DEVICE_INDEX))
+nav_capacity(seg::Segment) = Int(_u32(seg, OFF_NAV_CAPACITY))
 
 """
     segment_config(seg) -> SegmentConfig
@@ -95,6 +96,7 @@ segment_config(seg::Segment) = SegmentConfig(
     event_capacity(seg),
     command_capacity(seg),
     device_index(seg),
+    nav_capacity(seg),
 )
 
 """
@@ -124,10 +126,15 @@ function _write_header!(seg::Segment, config::SegmentConfig, layout::Layout)
     _set_u64!(seg, OFF_CHANNELS, layout.channels)
     _set_u64!(seg, OFF_CHANNEL_STRIDE, layout.channel_stride)
     _set_u64!(seg, OFF_TOTAL_BYTES, layout.total)
+    _set_u64!(seg, OFF_NAV_RING, layout.nav_ring)
+    _set_u32!(seg, OFF_NAV_CAPACITY, config.nav_capacity)
+    _set_u64!(seg, OFF_NAV_SNAPSHOT, layout.nav_snapshot)
     for (i, band) in enumerate(config.bands)
         unsafe_store!(Ptr{BandEntry}(seg.base + OFF_BAND_TABLE + (i - 1) * BAND_ENTRY_BYTES), band)
     end
     _init_ring!(seg.base + layout.command_ring, config.command_capacity, COMMAND_SLOT_BYTES)
+    _init_ring!(seg.base + layout.nav_ring, config.nav_capacity, EVENT_SLOT_BYTES)
+    _init_snapshot!(seg.base + layout.nav_snapshot)
     for channel = 1:config.channel_count
         base = seg.base + layout.channels + (channel - 1) * layout.channel_stride
         _init_ring!(base, config.event_capacity, EVENT_SLOT_BYTES)
@@ -289,6 +296,62 @@ event_ring(seg::Segment, channel::Integer) = _ring_at(_channel_base(seg, channel
 snapshot_slot(seg::Segment, channel::Integer) = SnapshotSlot(
     _channel_base(seg, channel) + RING_HEADER_BYTES + event_capacity(seg) * EVENT_SLOT_BYTES,
 )
+
+# ── The loop-wide navigation area ────────────────────────────────────────────
+
+"""
+    nav_ring(seg) -> Ring
+
+The loop-wide navigation event ring (loop → receiver): per navigation cycle one
+[`NavSatelliteEvent`](@ref) for every satellite the cycle knows, then its
+[`NavSolutionEvent`](@ref), which commits the cycle. Empty unless the loop runs
+in [`navigation_mode`](@ref) `NAV_VECTOR`.
+"""
+nav_ring(seg::Segment) = _ring_at(seg.base + Int(_u64(seg, OFF_NAV_RING)))
+
+"The loop-wide snapshot of the newest navigation solution."
+nav_snapshot_slot(seg::Segment) = SnapshotSlot(seg.base + Int(_u64(seg, OFF_NAV_SNAPSHOT)))
+
+"""
+    publish_nav_solution!(seg, tag::EventTag, solution::NavSolutionEvent)
+
+Publish a navigation cycle's solution: onto the nav ring, after the cycle's
+satellite events, and into the nav snapshot.
+"""
+function publish_nav_solution!(seg::Segment, tag::EventTag, solution::NavSolutionEvent)
+    publish!(nav_ring(seg), tag, solution)
+    _write_seqlocked!(nav_snapshot_slot(seg).base, tag, solution)
+    nothing
+end
+
+"""
+    read_nav_snapshot(seg) -> Union{Nothing,Tuple{EventTag,NavSolutionEvent}}
+
+The newest navigation solution, or `nothing` while none has been published
+(always, for a loop in `NAV_NONE`). For a reader that lost the nav ring's
+history, or only wants "now".
+"""
+read_nav_snapshot(seg::Segment; retries::Integer = 64) =
+    _read_seqlocked(nav_snapshot_slot(seg).base, NavSolutionEvent, retries)
+
+"""
+    navigation_mode(seg) -> UInt8
+
+What the loop process does about the navigation solution: `NAV_NONE` (it
+publishes none; the receiver decodes the bits and solves it) or `NAV_VECTOR`
+(it runs vector tracking and publishes the solution on the [`nav_ring`](@ref)).
+Written by the loop process before it marks itself running.
+"""
+navigation_mode(seg::Segment) = UInt8(_u32(seg, OFF_NAVIGATION_MODE))
+
+"""
+    set_navigation_mode!(seg, mode)
+
+Record the loop process's navigation mode (see [`navigation_mode`](@ref)). The
+loop process sets it once, before [`set_loop_state!`](@ref) marks it running,
+whose release store publishes it to a receiver that waits for that state.
+"""
+set_navigation_mode!(seg::Segment, mode::Integer) = (_set_u32!(seg, OFF_NAVIGATION_MODE, UInt8(mode)); nothing)
 
 # ── Heartbeats, state and pids ───────────────────────────────────────────────
 

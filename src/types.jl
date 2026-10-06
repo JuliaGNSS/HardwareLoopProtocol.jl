@@ -7,7 +7,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 "The protocol revision. A segment whose header carries another is refused."
-const PROTOCOL_VERSION = UInt32(1)
+const PROTOCOL_VERSION = UInt32(2)
 
 "Bytes reserved for a fixed-length ASCII name (a signal or group id)."
 const NAME_BYTES = 24
@@ -60,6 +60,10 @@ const EVENT_EPOCH_STATE = UInt8(3)
 const EVENT_STATUS = UInt8(4)
 "The full correlator taps of one record (only when enabled for the channel)."
 const EVENT_TAPS = UInt8(5)
+"A navigation solution, on the loop-wide nav ring (also mirrored into the nav snapshot)."
+const EVENT_NAV_SOLUTION = UInt8(6)
+"One satellite as a navigation cycle saw it, on the loop-wide nav ring."
+const EVENT_NAV_SATELLITE = UInt8(7)
 
 """
     EventTag
@@ -237,6 +241,130 @@ struct TapsEvent
     taps::NTuple{MAX_TAP_VALUES,ComplexF64}
     integrated_samples::Int64
 end
+
+# ── Navigation (loop → receiver, loop-wide) ──────────────────────────────────
+
+"The loop computes no navigation solution: the receiver decodes the bits and solves it."
+const NAV_NONE = UInt8(0)
+"The loop runs vector tracking and publishes its solution on the nav ring."
+const NAV_VECTOR = UInt8(1)
+
+# Navigation-solution flags.
+"Vector tracking is running after this cycle."
+const NAV_RUNNING = UInt32(1)
+"The navigation filter has been seeded: the solution is the filter's, not a scalar fix."
+const NAV_SEEDED = UInt32(2)
+"Vector tracking stopped in this cycle."
+const NAV_FELL_BACK = UInt32(4)
+"This cycle released at least one satellite from the vector loop."
+const NAV_RELEASED = UInt32(8)
+"The solution holds a position (the solver has produced a fix)."
+const NAV_VALID = UInt32(16)
+"`time_tai_s` and `time_tai_frac` hold the solution's time."
+const NAV_TIME_VALID = UInt32(32)
+
+"""
+    NavSolutionEvent
+
+One navigation cycle's solution, the last event of the cycle on the nav ring
+and the value in the nav snapshot. The tag's `channel` is 0 (loop-wide) and its
+`device_sample` the cycle's epoch on the reference band's counter.
+
+  - `cycle` — the estimator's navigation-cycle count;
+  - `position_ecef_m`, `velocity_ecef_mps` — ECEF, metres and metres per second;
+  - `clock_bias_m` — the receiver clock bias of the solution's reference system,
+    in metres; `clock_drift` — the relative clock drift (s/s). Inter-system and
+    inter-frequency biases are not published;
+  - `time_tai_s`, `time_tai_frac` — the solution's time as whole TAI seconds
+    since J2000 and the fraction of the second, meaningful with `NAV_TIME_VALID`;
+  - `position_std_m`, `clock_std_m` — the filter's 1σ uncertainties (`NaN`
+    while it is not running), `time_with_insufficient_meas_s` its coasting time;
+  - `dop` — GDOP, PDOP, VDOP, HDOP and TDOP, `NaN` when absent;
+  - `num_members` — satellites in the vector loop, `num_sats` — satellites in
+    the solution;
+  - `flags` — `NAV_RUNNING`, `NAV_SEEDED`, `NAV_FELL_BACK`, `NAV_RELEASED`,
+    `NAV_VALID`, `NAV_TIME_VALID`.
+"""
+struct NavSolutionEvent
+    cycle::Int64
+    position_ecef_m::NTuple{3,Float64}
+    velocity_ecef_mps::NTuple{3,Float64}
+    clock_bias_m::Float64
+    clock_drift::Float64
+    time_tai_s::Int64
+    time_tai_frac::Float64
+    position_std_m::Float64
+    clock_std_m::Float64
+    time_with_insufficient_meas_s::Float64
+    dop::NTuple{5,Float32}
+    num_members::Int32
+    num_sats::Int32
+    flags::UInt32
+end
+
+# Navigation-satellite flags.
+"A satellite is stepped on this PRN now."
+const NAV_SAT_TRACKED = UInt8(1)
+"Its bit clock has found the bit edges."
+const NAV_SAT_BIT_SYNCED = UInt8(2)
+"Synced and above the lock threshold."
+const NAV_SAT_IN_LOCK = UInt8(4)
+"In lock, decoded for positioning and healthy."
+const NAV_SAT_PVT_READY = UInt8(8)
+"The cycle has it in the vector loop."
+const NAV_SAT_IN_VECTOR_LOOP = UInt8(16)
+"The cycle's solution used it; the position, time and residuals are meaningful."
+const NAV_SAT_IN_SOLUTION = UInt8(32)
+
+# Why a cycle released a satellite (mirrors TrackingLoops' `VTReleaseReason`).
+const NAV_NOT_RELEASED = UInt8(0)
+const NAV_RELEASE_INELIGIBLE = UInt8(1)
+const NAV_RELEASE_BELOW_HORIZON = UInt8(2)
+const NAV_RELEASE_FALLBACK = UInt8(3)
+
+"""
+    NavSatelliteEvent
+
+One satellite as a navigation cycle saw it. A cycle publishes one per satellite
+it knows, before its `NavSolutionEvent`; the tag carries the satellite's `prn`
+and `band`, `channel` 0 and the cycle's epoch.
+
+  - `cycle` — the cycle it belongs to; `channel` — the loop channel that drives
+    the satellite; `signal` — the signal's id;
+  - `sat_position_ecef_m`, `sat_time_s` (transmit time), `residual_m` and
+    `rate_residual_mps` — from the solution, `NaN` unless `NAV_SAT_IN_SOLUTION`;
+  - `cn0_dbhz` — at the latest epoch the satellite was snapshotted at;
+  - `flags` — the `NAV_SAT_*` bits; `release_reason` — one of the
+    `NAV_RELEASE_*` codes, or `NAV_NOT_RELEASED`.
+"""
+struct NavSatelliteEvent
+    cycle::Int64
+    signal::FixedName
+    sat_position_ecef_m::NTuple{3,Float64}
+    sat_time_s::Float64
+    residual_m::Float64
+    rate_residual_mps::Float64
+    cn0_dbhz::Float64
+    channel::UInt16
+    flags::UInt8
+    release_reason::UInt8
+    pad::UInt32
+end
+
+NavSatelliteEvent(cycle, signal, sat_position_ecef_m, sat_time_s, residual_m, rate_residual_mps, cn0_dbhz,
+                  channel, flags, release_reason) = NavSatelliteEvent(
+    Int64(cycle),
+    signal isa FixedName ? signal : FixedName(signal),
+    map(Float64, Tuple(sat_position_ecef_m)),
+    Float64(sat_time_s),
+    Float64(residual_m),
+    Float64(rate_residual_mps),
+    Float64(cn0_dbhz),
+    UInt16(channel),
+    UInt8(flags),
+    UInt8(release_reason),
+    UInt32(0),
+)
 
 # ── Commands (receiver → loop) ───────────────────────────────────────────────
 
