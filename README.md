@@ -14,7 +14,9 @@ The two processes map one segment: a file, conventionally under `/dev/shm` on
 Linux. It holds a versioned header with the band table and both sides'
 heartbeats, a single-producer single-consumer command ring (receiver → loop),
 and per hardware channel an event ring (loop → receiver) of fixed-size tagged
-events plus a seqlock snapshot of the newest epoch state. Producers never
+events plus a seqlock snapshot of the newest epoch state. A loop-wide nav ring
+and snapshot carry the navigation solution of a loop that runs vector
+tracking. Producers never
 block; consumers detect lost history from the sequence numbers. Base only,
 `--trim`-friendly, and usable in-process with a heap-backed segment.
 

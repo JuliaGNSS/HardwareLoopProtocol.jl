@@ -3,6 +3,7 @@
 #
 #   [0, 4096)            header: fixed fields, heartbeats, band table
 #   [4096, …)            the command ring (receiver → loop)
+#   then, loop-wide:     the nav ring (loop → receiver) and the nav snapshot slot
 #   then, per channel:   the event ring (loop → receiver) and the snapshot slot
 #
 # Every region starts on a 64-byte line, rings on a 4 KiB page. Offsets are
@@ -37,6 +38,10 @@ const OFF_COMMAND_RING = 56
 const OFF_CHANNELS = 64
 const OFF_CHANNEL_STRIDE = 72
 const OFF_TOTAL_BYTES = 80
+const OFF_NAV_RING = 88
+const OFF_NAV_CAPACITY = 96
+const OFF_NAVIGATION_MODE = 100
+const OFF_NAV_SNAPSHOT = 104
 const OFF_LOOP_HEARTBEAT = 1024
 const OFF_LOOP_STATE = 1088
 const OFF_RECEIVER_HEARTBEAT = 1152
@@ -65,13 +70,15 @@ const COMMAND_PAYLOAD_BYTES = COMMAND_SLOT_BYTES - SLOT_PAYLOAD_OFFSET
 align(n::Integer, a::Integer) = (n + a - 1) ÷ a * a
 
 """
-    SegmentConfig(; channel_count, bands, event_capacity, command_capacity, device_index)
+    SegmentConfig(; channel_count, bands, event_capacity, command_capacity, device_index,
+                  nav_capacity)
 
 What a loop process creates a segment for: how many hardware channels, which
 bands (a vector of [`BandEntry`](@ref)s, the first one the reference band),
 and how deep the rings are. Capacities are rounded up to powers of two; the
 event capacity defaults to 8192 per channel, eight seconds of records at a
-1 kHz fold rate.
+1 kHz fold rate, and the loop-wide nav ring's to 1024 slots, a few seconds of
+navigation cycles with their satellite events at 10 Hz.
 """
 struct SegmentConfig
     channel_count::Int
@@ -79,6 +86,7 @@ struct SegmentConfig
     event_capacity::Int
     command_capacity::Int
     device_index::Int
+    nav_capacity::Int
 end
 
 function SegmentConfig(;
@@ -87,6 +95,7 @@ function SegmentConfig(;
     event_capacity::Integer = 8192,
     command_capacity::Integer = 256,
     device_index::Integer = 1,
+    nav_capacity::Integer = 1024,
 )
     channel_count >= 1 || throw(ArgumentError("channel_count must be at least 1"))
     channel_count <= typemax(UInt16) || throw(ArgumentError("too many channels"))
@@ -94,12 +103,14 @@ function SegmentConfig(;
         throw(ArgumentError("between 1 and $MAX_BANDS bands are supported"))
     event_capacity >= 2 || throw(ArgumentError("event_capacity must be at least 2"))
     command_capacity >= 2 || throw(ArgumentError("command_capacity must be at least 2"))
+    nav_capacity >= 2 || throw(ArgumentError("nav_capacity must be at least 2"))
     SegmentConfig(
         Int(channel_count),
         collect(BandEntry, bands),
         nextpow(2, Int(event_capacity)),
         nextpow(2, Int(command_capacity)),
         Int(device_index),
+        nextpow(2, Int(nav_capacity)),
     )
 end
 
@@ -107,6 +118,8 @@ end
 # the whole thing is.
 struct Layout
     command_ring::Int
+    nav_ring::Int
+    nav_snapshot::Int
     channels::Int
     channel_stride::Int
     total::Int
@@ -115,11 +128,13 @@ end
 function Layout(config::SegmentConfig)
     command_ring = HEADER_BYTES
     command_bytes = align(RING_HEADER_BYTES + config.command_capacity * COMMAND_SLOT_BYTES, PAGE)
-    channels = command_ring + command_bytes
+    nav_ring = command_ring + command_bytes
+    nav_snapshot = nav_ring + RING_HEADER_BYTES + config.nav_capacity * EVENT_SLOT_BYTES
+    channels = nav_ring + align(RING_HEADER_BYTES + config.nav_capacity * EVENT_SLOT_BYTES + SNAPSHOT_BYTES, PAGE)
     channel_stride =
         align(RING_HEADER_BYTES + config.event_capacity * EVENT_SLOT_BYTES + SNAPSHOT_BYTES, PAGE)
     total = channels + config.channel_count * channel_stride
-    Layout(command_ring, channels, channel_stride, total)
+    Layout(command_ring, nav_ring, nav_snapshot, channels, channel_stride, total)
 end
 
 # FNV-1a over the record geometry, so a segment written by one build of this
@@ -165,6 +180,8 @@ function layout_hash()
     h = _hash_struct(h, EpochStateEvent)
     h = _hash_struct(h, StatusEvent)
     h = _hash_struct(h, TapsEvent)
+    h = _hash_struct(h, NavSolutionEvent)
+    h = _hash_struct(h, NavSatelliteEvent)
     h = _hash_struct(h, CommandTag)
     h = _hash_struct(h, ArmCommand)
     h = _hash_struct(h, ConfigureCommand)
@@ -177,7 +194,7 @@ end
 function _check_geometry()
     sizeof(EventTag) == SLOT_TAG_BYTES || error("EventTag must be $SLOT_TAG_BYTES bytes")
     sizeof(CommandTag) == SLOT_TAG_BYTES || error("CommandTag must be $SLOT_TAG_BYTES bytes")
-    for T in (RecordEvent, BitEvent, EpochStateEvent, StatusEvent, TapsEvent)
+    for T in (RecordEvent, BitEvent, EpochStateEvent, StatusEvent, TapsEvent, NavSolutionEvent, NavSatelliteEvent)
         sizeof(T) <= EVENT_PAYLOAD_BYTES ||
             error("$T ($(sizeof(T)) bytes) does not fit an event slot's $EVENT_PAYLOAD_BYTES-byte payload")
         isbitstype(T) || error("$T must be isbits")
@@ -188,6 +205,7 @@ function _check_geometry()
         isbitstype(T) || error("$T must be isbits")
     end
     sizeof(BandEntry) == BAND_ENTRY_BYTES || error("BandEntry must be $BAND_ENTRY_BYTES bytes")
-    sizeof(EpochStateEvent) <= SNAPSHOT_BYTES - 8 || error("EpochStateEvent does not fit the snapshot")
+    sizeof(EpochStateEvent) <= SNAPSHOT_BYTES - 8 - SLOT_TAG_BYTES || error("EpochStateEvent does not fit the snapshot")
+    sizeof(NavSolutionEvent) <= SNAPSHOT_BYTES - 8 - SLOT_TAG_BYTES || error("NavSolutionEvent does not fit the snapshot")
     nothing
 end

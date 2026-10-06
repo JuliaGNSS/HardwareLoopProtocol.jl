@@ -21,7 +21,7 @@ end
     @test sizeof(EventTag) == 16
     @test sizeof(CommandTag) == 16
     @test sizeof(BandEntry) == 64
-    for T in (RecordEvent, BitEvent, EpochStateEvent, StatusEvent, TapsEvent)
+    for T in (RecordEvent, BitEvent, EpochStateEvent, StatusEvent, TapsEvent, NavSolutionEvent, NavSatelliteEvent)
         @test isbitstype(T)
         @test sizeof(T) <= HLP.EVENT_PAYLOAD_BYTES
     end
@@ -165,6 +165,75 @@ end
     close(seg)
 end
 
+nav_solution(k; flags = HLP.NAV_RUNNING | HLP.NAV_SEEDED | HLP.NAV_VALID) = NavSolutionEvent(
+    k, (3.9e6, 3.0e5, 5.0e6), (0.1, -0.2, 0.3), 12.5, 1e-7, 7_000_000 + k, 0.25, 4.5, 1.5, 0.0,
+    (2.0f0, 1.8f0, 1.2f0, 1.0f0, 0.7f0), Int32(6), Int32(7), flags,
+)
+
+@testset "Navigation events have the wire geometry" begin
+    @test sizeof(NavSolutionEvent) == 144
+    @test sizeof(NavSatelliteEvent) == 96
+    @test fieldoffset(NavSolutionEvent, 11) == 112    # dop
+    @test fieldoffset(NavSatelliteEvent, 8) == 88     # channel
+    @test sizeof(NavSolutionEvent) <= HLP.SNAPSHOT_BYTES - 8 - HLP.SLOT_TAG_BYTES
+    sat = NavSatelliteEvent(3, :GPSL1CA, (1.0, 2.0, 3.0), 0.07, 1.5, -0.1, 45.0, 2,
+                            HLP.NAV_SAT_TRACKED | HLP.NAV_SAT_IN_SOLUTION, HLP.NAV_NOT_RELEASED)
+    @test sat.signal == FixedName(:GPSL1CA)
+    @test sat.channel == 2 && sat.pad == 0
+end
+
+@testset "The nav ring and its snapshot carry a cycle, solution last" begin
+    seg = create_segment(nothing, SegmentConfig(; channel_count = 2, bands = BANDS, event_capacity = 8, nav_capacity = 3))
+    @test segment_config(seg).nav_capacity == 4
+    @test navigation_mode(seg) == HLP.NAV_NONE
+    set_navigation_mode!(seg, HLP.NAV_VECTOR)
+    @test navigation_mode(seg) == HLP.NAV_VECTOR
+    ring = nav_ring(seg)
+    @test ring_capacity(ring) == 4
+    @test peek!(ring, EventTag)[1] === :empty
+    @test isnothing(read_nav_snapshot(seg))
+    epoch = 400_000
+    for prn in (5, 9)
+        publish!(ring, EventTag(HLP.EVENT_NAV_SATELLITE, 0, epoch; prn),
+                 NavSatelliteEvent(1, :GPSL1CA, (1.0, 2.0, 3.0), 0.07, 1.5, -0.1, 45.0, prn,
+                                   HLP.NAV_SAT_TRACKED, HLP.NAV_NOT_RELEASED))
+    end
+    publish_nav_solution!(seg, EventTag(HLP.EVENT_NAV_SOLUTION, 0, epoch), nav_solution(1))
+    kinds = UInt8[]
+    prns = Int[]
+    while true
+        status, view, lost = peek!(ring, EventTag)
+        status === :empty && break
+        @test lost == 0
+        push!(kinds, view.tag.kind)
+        @test view.tag.channel == 0 && view.tag.device_sample == epoch
+        if view.tag.kind == HLP.EVENT_NAV_SATELLITE
+            sat = payload(NavSatelliteEvent, ring, view)
+            push!(prns, view.tag.prn)
+            @test sat.channel == view.tag.prn && sat.cycle == 1
+        else
+            @test payload(NavSolutionEvent, ring, view) == nav_solution(1)
+        end
+        commit!(ring, view)
+    end
+    @test kinds == [HLP.EVENT_NAV_SATELLITE, HLP.EVENT_NAV_SATELLITE, HLP.EVENT_NAV_SOLUTION]
+    @test prns == [5, 9]
+    tag, solution = read_nav_snapshot(seg)
+    @test tag.kind == HLP.EVENT_NAV_SOLUTION && tag.device_sample == epoch
+    @test solution == nav_solution(1)
+    # The snapshot keeps the newest when the ring overruns.
+    for k = 2:7
+        publish_nav_solution!(seg, EventTag(HLP.EVENT_NAV_SOLUTION, 0, k * epoch), nav_solution(k))
+    end
+    @test read_nav_snapshot(seg)[2].cycle == 7
+    status, view, lost = peek!(ring, EventTag)
+    @test status === :lost && lost == 2
+    # The channels' rings and snapshots are elsewhere.
+    @test peek!(event_ring(seg, 1), EventTag)[1] === :empty
+    @test isnothing(read_snapshot(snapshot_slot(seg, 1)))
+    close(seg)
+end
+
 @testset "Two threads: producer and consumer never see a torn slot" begin
     if Threads.nthreads() < 2
         @info "skipping the two-thread ring test: started with one thread"
@@ -259,6 +328,13 @@ end
     unsafe_store!(Ptr{UInt64}(seg.base), HLP.MAGIC)
     unsafe_store!(Ptr{UInt32}(seg.base + HLP.OFF_VERSION), UInt32(99))
     @test_throws ArgumentError attach_segment(path)
+    # A protocol-1 segment (no nav area) is refused by version, and by the
+    # layout hash if its version word were forged.
+    unsafe_store!(Ptr{UInt32}(seg.base + HLP.OFF_VERSION), UInt32(1))
+    @test_throws "speaks protocol version 1" attach_segment(path)
+    unsafe_store!(Ptr{UInt32}(seg.base + HLP.OFF_VERSION), HLP.PROTOCOL_VERSION)
+    unsafe_store!(Ptr{UInt64}(seg.base + HLP.OFF_LAYOUT_HASH), HLP.layout_hash() ⊻ 1)
+    @test_throws "another record layout" attach_segment(path)
     close(seg)
     unlink_segment(path)
     @test !segment_exists(path)
