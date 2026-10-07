@@ -4,19 +4,10 @@
 
 
 * feat!: add a loop-wide nav ring for the vector-tracking solution ([d8ae7e4](https://github.com/JuliaGNSS/HardwareLoopProtocol.jl/commit/d8ae7e44bd21a62dd32fae2014b6d9b27f235e1c))
-* feat!: carry each band's intermediate frequency in the band table ([ef55977](https://github.com/JuliaGNSS/HardwareLoopProtocol.jl/commit/ef55977af41695b76c587d62c8139e553195cda1))
 
 
 ### BREAKING CHANGES
 
-* PROTOCOL_VERSION is 3 and BandEntry's field layout
-changed, so 2.x and 3.x builds refuse each other's segments; rebuild
-both sides against 3.x. BandEntry's positional constructor now takes
-the IF after the sampling frequency and two pad words; the keyword
-constructor is unchanged apart from the new
-`intermediate_frequency_hz = 0.0` keyword.
-
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 * PROTOCOL_VERSION is 2 and the segment layout changed
 (the nav area sits between the command ring and the channels), so a
 receiver and a loop process built against 1.x and 2.x refuse each
