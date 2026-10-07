@@ -302,11 +302,22 @@ end
                  stdout = joinpath(dir, "gnss-loop-test-child-$(getpid()).out")),
         wait = false,
     )
-    # Let the child attach, then produce slowly enough that nothing is lost.
-    sleep(2)
+    # Produce once the child is polling, never more than half a ring ahead. It
+    # stamps its heartbeat only from inside its polling loop, so a heartbeat
+    # means it attached and has run (and compiled) its first `peek!`; a fixed
+    # wait raced the child's start-up and overran the ring when it started late.
+    deadline = time() + 120
+    while receiver_heartbeat(seg) == 0 && process_running(child) && time() < deadline
+        sleep(0.05)
+    end
+    @test receiver_heartbeat(seg) > 0
     for k = 1:n
+        # Flow control for the test only (`publish!` never waits): stay within
+        # half a ring of the consumer, whose first events still compile.
+        while ring_available(ring) >= ring_capacity(ring) ÷ 2 && time() < deadline
+            sleep(0.001)
+        end
         publish!(ring, tag(k), record(k))
-        k % 500 == 0 && sleep(0.01)
     end
     loop_heartbeat!(seg)
     wait(child)
