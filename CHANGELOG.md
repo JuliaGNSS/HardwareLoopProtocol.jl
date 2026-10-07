@@ -1,5 +1,22 @@
 # Changelog
 
+# [2.0.0](https://github.com/JuliaGNSS/HardwareLoopProtocol.jl/compare/v1.0.2...v2.0.0) (2026-10-07)
+
+
+* feat!: add a loop-wide nav ring for the vector-tracking solution ([d8ae7e4](https://github.com/JuliaGNSS/HardwareLoopProtocol.jl/commit/d8ae7e44bd21a62dd32fae2014b6d9b27f235e1c))
+
+
+### BREAKING CHANGES
+
+* PROTOCOL_VERSION is 2 and the segment layout changed
+(the nav area sits between the command ring and the channels), so a
+receiver and a loop process built against 1.x and 2.x refuse each
+other's segments. Rebuild both sides against 2.x. SegmentConfig has a
+new nav_capacity field; code that calls its positional constructor
+must pass it (the keyword constructor defaults it to 1024).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
 ## [1.0.2](https://github.com/JuliaGNSS/HardwareLoopProtocol.jl/compare/v1.0.1...v1.0.2) (2026-09-30)
 
 No changes to the package. Replaces the accidental 2.0.0 release.
