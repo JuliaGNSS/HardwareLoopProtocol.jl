@@ -7,7 +7,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 "The protocol revision. A segment whose header carries another is refused."
-const PROTOCOL_VERSION = UInt32(2)
+const PROTOCOL_VERSION = UInt32(3)
 
 "Bytes reserved for a fixed-length ASCII name (a signal or group id)."
 const NAME_BYTES = 24
@@ -536,30 +536,41 @@ QueryStateCommand() = QueryStateCommand(0)
 # ── The band table ───────────────────────────────────────────────────────────
 
 """
-    BandEntry
+    BandEntry(band_id, sampling_freq_hz; intermediate_frequency_hz = 0.0, rf_input = 1, device_index = 1)
 
 One RF band the loop process serves: its id, the rate its channels' sample
-counters run at, and the RF input and device it arrives on. Written by the loop
-process, checked by the receiver against its own band plan.
+counters run at, its intermediate frequency, and the RF input and device it
+arrives on. Written by the loop process, checked by the receiver against its
+own band plan.
+
+`intermediate_frequency_hz` is where a signal at zero Doppler sits in the band's
+samples: the front end's IF, including any fixed offset its tuning leaves (an
+RTL-SDR's LO synthesizer lands a fixed number of Hz off the requested
+frequency). Every carrier Doppler in this protocol is relative to it — a
+channel's carrier NCO runs at the IF plus the Doppler — so a receiver that
+acquires from the band's samples searches around it.
 """
 struct BandEntry
     band_id::FixedName
     sampling_freq_hz::Float64
+    intermediate_frequency_hz::Float64
     rf_input::Int32
     device_index::Int32
-    pad::NTuple{3,UInt64}
+    pad::NTuple{2,UInt64}
 end
 
-BandEntry(band_id, sampling_freq_hz; rf_input = 1, device_index = 1) = BandEntry(
+BandEntry(band_id, sampling_freq_hz; intermediate_frequency_hz = 0.0, rf_input = 1, device_index = 1) = BandEntry(
     FixedName(band_id),
     Float64(sampling_freq_hz),
+    Float64(intermediate_frequency_hz),
     Int32(rf_input),
     Int32(device_index),
-    (0, 0, 0),
+    (0, 0),
 )
 
 Base.:(==)(a::BandEntry, b::BandEntry) =
     a.band_id == b.band_id &&
     a.sampling_freq_hz == b.sampling_freq_hz &&
+    a.intermediate_frequency_hz == b.intermediate_frequency_hz &&
     a.rf_input == b.rf_input &&
     a.device_index == b.device_index

@@ -2,7 +2,7 @@ using Test
 using HardwareLoopProtocol
 const HLP = HardwareLoopProtocol
 
-const BANDS = [BandEntry(:L1, 4e6), BandEntry(:L5, 25e6; rf_input = 2)]
+const BANDS = [BandEntry(:L1, 4e6; intermediate_frequency_hz = -83.0), BandEntry(:L5, 25e6; rf_input = 2)]
 
 record(k) = RecordEvent(ComplexF64(k, -k), 4000, 1, HLP.RECORD_HAS_CN0, 1e4, 100.0 + k, 0.1)
 tag(k; channel = 1) = EventTag(HLP.EVENT_RECORD, channel, 4000k; band = 1, prn = 7)
@@ -21,6 +21,7 @@ end
     @test sizeof(EventTag) == 16
     @test sizeof(CommandTag) == 16
     @test sizeof(BandEntry) == 64
+    @test fieldoffset(BandEntry, 3) == 32    # intermediate_frequency_hz
     for T in (RecordEvent, BitEvent, EpochStateEvent, StatusEvent, TapsEvent, NavSolutionEvent, NavSatelliteEvent)
         @test isbitstype(T)
         @test sizeof(T) <= HLP.EVENT_PAYLOAD_BYTES
@@ -40,6 +41,9 @@ end
     seg = create_segment(nothing, config)
     @test HLP.channel_count(seg) == 3
     @test band_table(seg) == BANDS
+    @test band_table(seg)[1].intermediate_frequency_hz == -83.0
+    @test band_table(seg)[2].intermediate_frequency_hz == 0.0
+    @test BANDS[1] != BandEntry(:L1, 4e6)
     @test segment_config(seg).event_capacity == 128
     @test loop_state(seg) == HLP.LOOP_STATE_STARTING
     set_loop_state!(seg, HLP.LOOP_STATE_RUNNING)
@@ -328,10 +332,12 @@ end
     unsafe_store!(Ptr{UInt64}(seg.base), HLP.MAGIC)
     unsafe_store!(Ptr{UInt32}(seg.base + HLP.OFF_VERSION), UInt32(99))
     @test_throws ArgumentError attach_segment(path)
-    # A protocol-1 segment (no nav area) is refused by version, and by the
-    # layout hash if its version word were forged.
+    # A protocol-1 (no nav area) or protocol-2 (no band IF) segment is refused
+    # by version, and by the layout hash if its version word were forged.
     unsafe_store!(Ptr{UInt32}(seg.base + HLP.OFF_VERSION), UInt32(1))
     @test_throws "speaks protocol version 1" attach_segment(path)
+    unsafe_store!(Ptr{UInt32}(seg.base + HLP.OFF_VERSION), UInt32(2))
+    @test_throws "speaks protocol version 2" attach_segment(path)
     unsafe_store!(Ptr{UInt32}(seg.base + HLP.OFF_VERSION), HLP.PROTOCOL_VERSION)
     unsafe_store!(Ptr{UInt64}(seg.base + HLP.OFF_LAYOUT_HASH), HLP.layout_hash() ⊻ 1)
     @test_throws "another record layout" attach_segment(path)
