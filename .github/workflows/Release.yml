@@ -4,8 +4,11 @@ name: Release
 # semantic-release only computes the next version and its notes (dry run). This
 # workflow writes them into Project.toml and CHANGELOG.md, pushes that commit
 # and asks JuliaRegistrator to register it. It neither tags nor creates a
-# GitHub release: TagBot does both once General has merged the registration,
-# which also makes that tag the base for the next version.
+# GitHub release: TagBot does both once General has merged the registration.
+# The base for the next version is the last version General has merged, which
+# is tagged in the checkout before semantic-release runs, so a missing tag
+# (TagBot failed, or the tag of a deleted immutable release cannot be created
+# again) does not make it compute a registered version again.
 #
 # Until then the version is pending. Later pushes compute the next version from
 # the same tag; if it comes out the same and the release notes changed, the
@@ -29,7 +32,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
+          fetch-depth: 0
           persist-credentials: false
+      - name: Tag the versions General has merged
+        run: .github/scripts/tag-registered-versions.py
       - name: Compute the next version
         uses: cycjimmy/semantic-release-action@v6
         id: semantic-release
