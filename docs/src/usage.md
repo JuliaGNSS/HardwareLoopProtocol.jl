@@ -15,11 +15,17 @@ The constants for event, command and status kinds (`EVENT_RECORD`,
 `COMMAND_ARM`, `STATUS_ARMED`, ...) are not exported. Qualify them with the
 module name.
 
+Each band's entry also carries its intermediate frequency: where a signal at zero
+Doppler sits in the band's samples, including any fixed offset the front end's
+tuning leaves. Every carrier Doppler in the protocol is relative to it. The loop
+process writes the band table; the receiver reads it with [`band_table`](@ref),
+for example to acquire around the right frequency.
+
 ```@example usage
 using HardwareLoopProtocol
 const HLP = HardwareLoopProtocol
 
-config = SegmentConfig(; channel_count = 2, bands = [BandEntry(:L1, 4e6)])
+config = SegmentConfig(; channel_count = 2, bands = [BandEntry(:L1, 4e6; intermediate_frequency_hz = -83.0)])
 seg = create_segment(nothing, config)
 band_table(seg)
 ```
