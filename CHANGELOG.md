@@ -1,5 +1,22 @@
 # Changelog
 
+# [3.0.0](https://github.com/JuliaGNSS/HardwareLoopProtocol.jl/compare/v2.0.0...v3.0.0) (2026-10-07)
+
+
+* feat!: carry each band's intermediate frequency in the band table ([ef55977](https://github.com/JuliaGNSS/HardwareLoopProtocol.jl/commit/ef55977af41695b76c587d62c8139e553195cda1))
+
+
+### BREAKING CHANGES
+
+* PROTOCOL_VERSION is 3 and BandEntry's field layout
+changed, so 2.x and 3.x builds refuse each other's segments; rebuild
+both sides against 3.x. BandEntry's positional constructor now takes
+the IF after the sampling frequency and two pad words; the keyword
+constructor is unchanged apart from the new
+`intermediate_frequency_hz = 0.0` keyword.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+
 # [2.0.0](https://github.com/JuliaGNSS/HardwareLoopProtocol.jl/compare/v1.0.2...v2.0.0) (2026-10-07)
 
 
