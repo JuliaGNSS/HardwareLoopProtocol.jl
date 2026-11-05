@@ -47,7 +47,6 @@ arm = ArmCommand(;
     application_sample_index = 40_000,
     correlator_sample_offsets = (-2, 0, 2),
     num_correlators = 3,
-    sampling_freq_hz = 4e6,
 )
 try_publish!(commands, CommandTag(HLP.COMMAND_ARM, 1, 1), arm)
 ```

@@ -22,6 +22,8 @@ end
     @test sizeof(CommandTag) == 16
     @test sizeof(BandEntry) == 64
     @test fieldoffset(BandEntry, 3) == 32    # intermediate_frequency_hz
+    @test sizeof(ArmCommand) == 136
+    @test sum(sizeof, fieldtypes(ArmCommand)) == sizeof(ArmCommand)    # no implicit padding
     for T in (IntegrationEvent, BitEvent, LoopStateEvent, StatusEvent, CorrelatorOutputsEvent, NavSolutionEvent, NavSatelliteEvent)
         @test isbitstype(T)
         @test sizeof(T) <= HLP.EVENT_PAYLOAD_BYTES
@@ -133,8 +135,7 @@ end
     ring = command_ring(seg)
     arm = ArmCommand(
         FixedName(:GPSL1CA), FixedName(:GPSL1CA), 7, 1, 1500.0, 1.5, 100.5, 40_000,
-        (-2, 0, 2, 0, 0), 3, 4, 1, 1.0, 1.0, 0.0, 4e6, 0.0, 0.0,
-        HLP.SECONDARY_CODE_LOOP_WIPES, 1, 1, 0, 0,
+        (-2, 0, 2, 0, 0), 3, 1, HLP.SECONDARY_CODE_LOOP_WIPES, 0, 0x0000, 1.0, 1.0,
     )
     for seq = 1:4
         @test try_publish!(ring, CommandTag(HLP.COMMAND_ARM, 1, seq), arm)
