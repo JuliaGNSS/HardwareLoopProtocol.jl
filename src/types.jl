@@ -493,27 +493,94 @@ end
 
 Loop-wide configuration: the NCO update interval in reference-band samples, the
 predicted NCO command delay (how many samples past the device counter a command
-is expected to take effect), the code periods to integrate coherently, the
-predetection integration time ceiling, how many NCO updates the noise reference
-stays on one probe and the loop may fall behind the device, and which events
-are published (`EVENTS_*`). Zero leaves a field unchanged, with two exceptions:
-`num_code_periods_to_integrate` is taken whenever `nco_update_interval_samples`
-is given, `0` meaning one whole bit, and `event_flags` always replaces the
-published events.
+is expected to take effect), the code periods to integrate coherently
+(`INTEGRATE_WHOLE_BIT` for one whole bit), the predetection integration
+time ceiling, how many NCO updates the noise reference stays on one probe and the
+loop may fall behind the device, and which events are published (`EVENTS_*`).
+
+Only the fields whose `CONFIGURE_SET_*` bit is in `set_fields` change, each to
+exactly the value given; the others keep theirs. A set field must lie in its
+range:
+
+| Field                           | Allowed                     |
+|:--------------------------------|:----------------------------|
+| `nco_update_interval_samples`   | ≥ 1                         |
+| `max_integration_time_s`        | finite and > 0              |
+| `nco_command_delay_samples`     | ≥ 0                         |
+| `num_code_periods_to_integrate` | ≥ 0                         |
+| `noise_rearm_nco_updates`       | ≥ 1                         |
+| `max_backlog_nco_updates`       | ≥ 0                         |
+| `event_flags`                   | known `EVENTS_*` bits only  |
+
+If a set field is out of range, or `set_fields` holds a bit that is not a
+`CONFIGURE_SET_*` bit, the loop applies none of them and rejects the command
+(`STATUS_COMMAND_REJECTED`, `REJECT_BAD_CONFIG`): a field the loop does not
+know is never silently ignored.
 """
 struct ConfigureCommand
     nco_update_interval_samples::Int64
+    max_integration_time_s::Float64
     nco_command_delay_samples::Int32
     num_code_periods_to_integrate::Int32
-    max_integration_time_s::Float64
     noise_rearm_nco_updates::Int32
-    event_flags::UInt32
     max_backlog_nco_updates::Int32
-    pad::UInt32
+    event_flags::UInt32
+    set_fields::UInt32
+end
+
+const CONFIGURE_SET_NCO_UPDATE_INTERVAL = UInt32(1)
+const CONFIGURE_SET_MAX_INTEGRATION_TIME = UInt32(2)
+const CONFIGURE_SET_NCO_COMMAND_DELAY = UInt32(4)
+const CONFIGURE_SET_NUM_CODE_PERIODS_TO_INTEGRATE = UInt32(8)
+const CONFIGURE_SET_NOISE_REARM_NCO_UPDATES = UInt32(16)
+const CONFIGURE_SET_MAX_BACKLOG_NCO_UPDATES = UInt32(32)
+const CONFIGURE_SET_EVENT_FLAGS = UInt32(64)
+"Every `CONFIGURE_SET_*` bit; a configure command with any other bit set is rejected."
+const CONFIGURE_SET_ALL = UInt32(127)
+
+"`num_code_periods_to_integrate` value that integrates coherently over one whole bit."
+const INTEGRATE_WHOLE_BIT = Int32(0)
+
+"""
+    ConfigureCommand(; nco_update_interval_samples, max_integration_time_s,
+                     nco_command_delay_samples, num_code_periods_to_integrate,
+                     noise_rearm_nco_updates, max_backlog_nco_updates, event_flags)
+
+Keyword form: sets exactly the keywords given, and their `CONFIGURE_SET_*` bits.
+"""
+function ConfigureCommand(;
+    nco_update_interval_samples::Union{Nothing,Integer} = nothing,
+    max_integration_time_s::Union{Nothing,Real} = nothing,
+    nco_command_delay_samples::Union{Nothing,Integer} = nothing,
+    num_code_periods_to_integrate::Union{Nothing,Integer} = nothing,
+    noise_rearm_nco_updates::Union{Nothing,Integer} = nothing,
+    max_backlog_nco_updates::Union{Nothing,Integer} = nothing,
+    event_flags::Union{Nothing,Integer} = nothing,
+)
+    set_fields = UInt32(0)
+    isnothing(nco_update_interval_samples) || (set_fields |= CONFIGURE_SET_NCO_UPDATE_INTERVAL)
+    isnothing(max_integration_time_s) || (set_fields |= CONFIGURE_SET_MAX_INTEGRATION_TIME)
+    isnothing(nco_command_delay_samples) || (set_fields |= CONFIGURE_SET_NCO_COMMAND_DELAY)
+    isnothing(num_code_periods_to_integrate) || (set_fields |= CONFIGURE_SET_NUM_CODE_PERIODS_TO_INTEGRATE)
+    isnothing(noise_rearm_nco_updates) || (set_fields |= CONFIGURE_SET_NOISE_REARM_NCO_UPDATES)
+    isnothing(max_backlog_nco_updates) || (set_fields |= CONFIGURE_SET_MAX_BACKLOG_NCO_UPDATES)
+    isnothing(event_flags) || (set_fields |= CONFIGURE_SET_EVENT_FLAGS)
+    ConfigureCommand(
+        Int64(something(nco_update_interval_samples, 0)),
+        Float64(something(max_integration_time_s, 0.0)),
+        Int32(something(nco_command_delay_samples, 0)),
+        Int32(something(num_code_periods_to_integrate, 0)),
+        Int32(something(noise_rearm_nco_updates, 0)),
+        Int32(something(max_backlog_nco_updates, 0)),
+        UInt32(something(event_flags, 0)),
+        set_fields,
+    )
 end
 
 "Publish `CorrelatorOutputsEvent`s for every armed channel."
 const EVENTS_CORRELATOR_OUTPUTS = UInt32(1)
+"Every `EVENTS_*` bit; a configure command setting any other bit is rejected."
+const EVENTS_ALL = EVENTS_CORRELATOR_OUTPUTS
 
 "Release channel k. Carries nothing beyond its tag."
 struct ReleaseCommand

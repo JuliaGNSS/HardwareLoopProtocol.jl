@@ -36,6 +36,18 @@ end
     @test HLP.layout_hash() != HLP._fnv1a_mix(0xcbf29ce484222325, 1)
 end
 
+@testset "A configure command sets exactly the fields it is given" begin
+    cfg = ConfigureCommand(; num_code_periods_to_integrate = HLP.INTEGRATE_WHOLE_BIT, event_flags = 0)
+    @test cfg.set_fields == HLP.CONFIGURE_SET_NUM_CODE_PERIODS_TO_INTEGRATE | HLP.CONFIGURE_SET_EVENT_FLAGS
+    @test cfg.num_code_periods_to_integrate == 0 && cfg.event_flags == 0
+    @test ConfigureCommand().set_fields == 0
+    all_set = ConfigureCommand(; nco_update_interval_samples = 4000, max_integration_time_s = 0.02,
+        nco_command_delay_samples = 2, num_code_periods_to_integrate = 1, noise_rearm_nco_updates = 1000,
+        max_backlog_nco_updates = 4, event_flags = HLP.EVENTS_CORRELATOR_OUTPUTS)
+    @test all_set.set_fields == HLP.CONFIGURE_SET_ALL
+    @test all_set == ConfigureCommand(4000, 0.02, 2, 1, 1000, 4, HLP.EVENTS_CORRELATOR_OUTPUTS, 127)
+end
+
 @testset "A heap-backed segment carries its configuration" begin
     config = SegmentConfig(; channel_count = 3, bands = BANDS, event_capacity = 100, command_capacity = 5)
     @test config.event_capacity == 128     # rounded up to a power of two
@@ -330,6 +342,8 @@ end
     @test cview.tag.kind == HLP.COMMAND_CONFIGURE && cview.tag.sequence == 77
     cfg = payload(ConfigureCommand, commands, cview)
     @test cfg.nco_update_interval_samples == 4000 && cfg.nco_command_delay_samples == 2
+    @test cfg.set_fields == HLP.CONFIGURE_SET_NCO_UPDATE_INTERVAL | HLP.CONFIGURE_SET_NCO_COMMAND_DELAY |
+                            HLP.CONFIGURE_SET_MAX_INTEGRATION_TIME
     commit!(commands, cview)
     @test peek!(commands, CommandTag)[1] === :empty
     @test receiver_pid(seg) > 0

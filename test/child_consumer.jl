@@ -15,7 +15,7 @@ lost_total = 0
 checksum = 0.0
 # The receiver side produces commands: one configure command, sequence 77.
 try_publish!(commands, CommandTag(HLP.COMMAND_CONFIGURE, 0, 77),
-             ConfigureCommand(4000, 2, 0, 0.02, 1000, 0, 4, 0)) || error("command ring full")
+             ConfigureCommand(; nco_update_interval_samples = 4000, nco_command_delay_samples = 2, max_integration_time_s = 0.02)) || error("command ring full")
 deadline = time_ns() + 30_000_000_000
 while seen + lost_total < expected && time_ns() < deadline
     status, view, lost = peek!(ring, EventTag)
