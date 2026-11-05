@@ -7,7 +7,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 "The protocol revision. A segment whose header carries another is refused."
-const PROTOCOL_VERSION = UInt32(3)
+const PROTOCOL_VERSION = UInt32(4)
 
 "Bytes reserved for a fixed-length ASCII name (a signal or group id)."
 const NAME_BYTES = 24
@@ -272,14 +272,16 @@ and the value in the nav snapshot. The tag's `channel` is 0 (loop-wide) and its
 
   - `cycle` — the estimator's navigation-cycle count;
   - `position_ecef_m`, `velocity_ecef_mps` — ECEF, metres and metres per second;
-  - `clock_bias_m` — the receiver clock bias of the solution's reference system,
-    in metres; `clock_drift` — the relative clock drift (s/s). Inter-system and
-    inter-frequency biases are not published;
+  - `clock_drift_mps` — the receiver clock drift in m/s, as PositionVelocityTime
+    gives it. No clock bias is published: the solution's time is the receiver
+    clock corrected. Inter-system and inter-frequency biases are not published
+    either;
   - `time_tai_s`, `time_tai_frac` — the solution's time as whole TAI seconds
     since J2000 and the fraction of the second, meaningful with `NAV_TIME_VALID`;
   - `position_std_m`, `clock_std_m` — the filter's 1σ uncertainties (`NaN`
     while it is not running), `time_with_insufficient_meas_s` its coasting time;
-  - `dop` — GDOP, PDOP, VDOP, HDOP and TDOP, `NaN` when absent;
+  - `dop` — GDOP, PDOP, HDOP, VDOP and TDOP, PositionVelocityTime's order,
+    `NaN` when absent;
   - `num_members` — satellites in the vector loop, `num_sats` — satellites in
     the solution;
   - `flags` — `NAV_RUNNING`, `NAV_SEEDED`, `NAV_FELL_BACK`, `NAV_RELEASED`,
@@ -289,8 +291,7 @@ struct NavSolutionEvent
     cycle::Int64
     position_ecef_m::NTuple{3,Float64}
     velocity_ecef_mps::NTuple{3,Float64}
-    clock_bias_m::Float64
-    clock_drift::Float64
+    clock_drift_mps::Float64
     time_tai_s::Int64
     time_tai_frac::Float64
     position_std_m::Float64
