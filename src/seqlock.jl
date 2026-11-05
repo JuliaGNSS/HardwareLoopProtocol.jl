@@ -2,14 +2,14 @@
 # The snapshots: one value behind a seqlock, for readers that only want the
 # newest state and must never block the writer. Layout:
 # [seq::UInt64][EventTag][payload], inside a 256-byte slot. Each channel has one
-# holding its newest `EpochStateEvent` (PVT, the dashboard); the loop-wide
+# holding its newest `LoopStateEvent` (PVT, the dashboard); the loop-wide
 # navigation area has one holding the newest `NavSolutionEvent`.
 # ─────────────────────────────────────────────────────────────────────────────
 
 """
     SnapshotSlot
 
-A handle on one channel's seqlock-protected epoch-state snapshot. Obtain it
+A handle on one channel's seqlock-protected loop-state snapshot. Obtain it
 with [`snapshot_slot`](@ref).
 """
 struct SnapshotSlot
@@ -51,20 +51,20 @@ end
 """
     write_snapshot!(slot, tag, state)
 
-Publish a new epoch state. The sequence word is odd while the write is in
+Publish a new loop state. The sequence word is odd while the write is in
 progress and even once it is complete; readers retry on an odd or changed word.
 """
-write_snapshot!(slot::SnapshotSlot, tag::EventTag, state::EpochStateEvent) =
+write_snapshot!(slot::SnapshotSlot, tag::EventTag, state::LoopStateEvent) =
     _write_seqlocked!(slot.base, tag, state)
 
 """
-    read_snapshot(slot) -> Union{Nothing,Tuple{EventTag,EpochStateEvent}}
+    read_snapshot(slot) -> Union{Nothing,Tuple{EventTag,LoopStateEvent}}
 
-The newest epoch state, or `nothing` while none has been written. Retries a
+The newest loop state, or `nothing` while none has been written. Retries a
 bounded number of times if the writer is mid-update.
 """
 read_snapshot(slot::SnapshotSlot; retries::Integer = 64) =
-    _read_seqlocked(slot.base, EpochStateEvent, retries)
+    _read_seqlocked(slot.base, LoopStateEvent, retries)
 
 "The snapshot's sequence word: even and non-zero once something is published."
 snapshot_sequence(slot::SnapshotSlot) = load_acquire(u64ptr(slot.base, 0))

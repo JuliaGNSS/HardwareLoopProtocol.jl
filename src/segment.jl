@@ -292,7 +292,7 @@ end
 "Hardware channel `channel`'s event ring (loop → receiver)."
 event_ring(seg::Segment, channel::Integer) = _ring_at(_channel_base(seg, channel))
 
-"Hardware channel `channel`'s epoch-state snapshot."
+"Hardware channel `channel`'s loop-state snapshot."
 snapshot_slot(seg::Segment, channel::Integer) = SnapshotSlot(
     _channel_base(seg, channel) + RING_HEADER_BYTES + event_capacity(seg) * EVENT_SLOT_BYTES,
 )

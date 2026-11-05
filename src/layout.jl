@@ -76,8 +76,8 @@ align(n::Integer, a::Integer) = (n + a - 1) ÷ a * a
 What a loop process creates a segment for: how many hardware channels, which
 bands (a vector of [`BandEntry`](@ref)s, the first one the reference band),
 and how deep the rings are. Capacities are rounded up to powers of two; the
-event capacity defaults to 8192 per channel, eight seconds of records at a
-1 kHz fold rate, and the loop-wide nav ring's to 1024 slots, a few seconds of
+event capacity defaults to 8192 per channel, eight seconds of integrations at a
+1 kHz NCO update rate, and the loop-wide nav ring's to 1024 slots, a few seconds of
 navigation cycles with their satellite events at 10 Hz.
 """
 struct SegmentConfig
@@ -175,11 +175,11 @@ function layout_hash()
     h = _fnv1a_mix(h, COMMAND_SLOT_BYTES)
     h = _fnv1a_mix(h, NAME_BYTES)
     h = _hash_struct(h, EventTag)
-    h = _hash_struct(h, RecordEvent)
+    h = _hash_struct(h, IntegrationEvent)
     h = _hash_struct(h, BitEvent)
-    h = _hash_struct(h, EpochStateEvent)
+    h = _hash_struct(h, LoopStateEvent)
     h = _hash_struct(h, StatusEvent)
-    h = _hash_struct(h, TapsEvent)
+    h = _hash_struct(h, CorrelatorOutputsEvent)
     h = _hash_struct(h, NavSolutionEvent)
     h = _hash_struct(h, NavSatelliteEvent)
     h = _hash_struct(h, CommandTag)
@@ -194,7 +194,7 @@ end
 function _check_geometry()
     sizeof(EventTag) == SLOT_TAG_BYTES || error("EventTag must be $SLOT_TAG_BYTES bytes")
     sizeof(CommandTag) == SLOT_TAG_BYTES || error("CommandTag must be $SLOT_TAG_BYTES bytes")
-    for T in (RecordEvent, BitEvent, EpochStateEvent, StatusEvent, TapsEvent, NavSolutionEvent, NavSatelliteEvent)
+    for T in (IntegrationEvent, BitEvent, LoopStateEvent, StatusEvent, CorrelatorOutputsEvent, NavSolutionEvent, NavSatelliteEvent)
         sizeof(T) <= EVENT_PAYLOAD_BYTES ||
             error("$T ($(sizeof(T)) bytes) does not fit an event slot's $EVENT_PAYLOAD_BYTES-byte payload")
         isbitstype(T) || error("$T must be isbits")
@@ -205,7 +205,7 @@ function _check_geometry()
         isbitstype(T) || error("$T must be isbits")
     end
     sizeof(BandEntry) == BAND_ENTRY_BYTES || error("BandEntry must be $BAND_ENTRY_BYTES bytes")
-    sizeof(EpochStateEvent) <= SNAPSHOT_BYTES - 8 - SLOT_TAG_BYTES || error("EpochStateEvent does not fit the snapshot")
+    sizeof(LoopStateEvent) <= SNAPSHOT_BYTES - 8 - SLOT_TAG_BYTES || error("LoopStateEvent does not fit the snapshot")
     sizeof(NavSolutionEvent) <= SNAPSHOT_BYTES - 8 - SLOT_TAG_BYTES || error("NavSolutionEvent does not fit the snapshot")
     nothing
 end

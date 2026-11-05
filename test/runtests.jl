@@ -4,8 +4,8 @@ const HLP = HardwareLoopProtocol
 
 const BANDS = [BandEntry(:L1, 4e6; intermediate_frequency_hz = -83.0), BandEntry(:L5, 25e6; rf_input = 2)]
 
-record(k) = RecordEvent(ComplexF64(k, -k), 4000, 1, HLP.RECORD_HAS_CN0, 1e4, 100.0 + k, 0.1)
-tag(k; channel = 1) = EventTag(HLP.EVENT_RECORD, channel, 4000k; band = 1, prn = 7)
+integration(k) = IntegrationEvent(ComplexF64(k, -k), 4000, 1, HLP.INTEGRATION_HAS_CN0, 1e4, 100.0 + k, 0.1)
+tag(k; channel = 1) = EventTag(HLP.EVENT_INTEGRATION, channel, 4000k; band = 1, prn = 7)
 
 @testset "Fixed names round-trip" begin
     n = FixedName(:GalileoE1B_BOC11)
@@ -22,7 +22,7 @@ end
     @test sizeof(CommandTag) == 16
     @test sizeof(BandEntry) == 64
     @test fieldoffset(BandEntry, 3) == 32    # intermediate_frequency_hz
-    for T in (RecordEvent, BitEvent, EpochStateEvent, StatusEvent, TapsEvent, NavSolutionEvent, NavSatelliteEvent)
+    for T in (IntegrationEvent, BitEvent, LoopStateEvent, StatusEvent, CorrelatorOutputsEvent, NavSolutionEvent, NavSatelliteEvent)
         @test isbitstype(T)
         @test sizeof(T) <= HLP.EVENT_PAYLOAD_BYTES
     end
@@ -66,7 +66,7 @@ end
     status, _, _ = peek!(ring, EventTag)
     @test status === :empty
     for k = 1:10
-        @test publish!(ring, tag(k), record(k)) == k - 1
+        @test publish!(ring, tag(k), integration(k)) == k - 1
     end
     @test ring_available(ring) == 10
     @test ring_space(ring) == 6
@@ -74,11 +74,11 @@ end
         status, view, lost = peek!(ring, EventTag)
         @test status === :ok
         @test lost == 0
-        @test view.tag.kind == HLP.EVENT_RECORD
-        @test view.tag.device_sample == 4000k
+        @test view.tag.kind == HLP.EVENT_INTEGRATION
+        @test view.tag.sample_index == 4000k
         @test view.tag.prn == 7
-        body = payload(RecordEvent, ring, view)
-        @test body == record(k)
+        body = payload(IntegrationEvent, ring, view)
+        @test body == integration(k)
         # Peeking again without committing returns the same slot.
         @test peek!(ring, EventTag)[2].index == view.index
         commit!(ring, view)
@@ -94,7 +94,7 @@ end
     _, view, _ = peek!(ring, EventTag)
     @test view.tag.kind == HLP.EVENT_BIT
     bit = payload(BitEvent, ring, view)
-    @test bit.soft_bit == -3.5f0 && bit.polarity == -1 && bit.bit_index == 42
+    @test bit.soft_bit == -3.5f0 && bit.bit_polarity == -1 && bit.bit_index == 42
     commit!(ring, view)
     _, view, _ = peek!(ring, EventTag)
     st = payload(StatusEvent, ring, view)
@@ -108,20 +108,20 @@ end
     seg = create_segment(nothing, SegmentConfig(; channel_count = 1, bands = BANDS, event_capacity = 8))
     ring = event_ring(seg, 1)
     for k = 1:20
-        publish!(ring, tag(k), record(k))
+        publish!(ring, tag(k), integration(k))
     end
     @test producer_overruns(ring) == 12
     status, view, lost = peek!(ring, EventTag)
     @test status === :lost
     @test lost == 12
     @test consumer_lost(ring) == 12
-    # The oldest intact slot is record 13.
-    @test payload(RecordEvent, ring, view) == record(13)
+    # The oldest intact slot is integration 13.
+    @test payload(IntegrationEvent, ring, view) == integration(13)
     commit!(ring, view)
     for k = 14:20
         status, view, lost = peek!(ring, EventTag)
         @test status === :ok && lost == 0
-        @test payload(RecordEvent, ring, view) == record(k)
+        @test payload(IntegrationEvent, ring, view) == integration(k)
         commit!(ring, view)
     end
     @test peek!(ring, EventTag)[1] === :empty
@@ -134,7 +134,7 @@ end
     arm = ArmCommand(
         FixedName(:GPSL1CA), FixedName(:GPSL1CA), 7, 1, 1500.0, 1.5, 100.5, 40_000,
         (-2, 0, 2, 0, 0), 3, 4, 1, 1.0, 1.0, 0.0, 4e6, 0.0, 0.0,
-        HLP.SECONDARY_PRIMARY_ONLY, 1, 1, 0, 0,
+        HLP.SECONDARY_CODE_LOOP_WIPES, 1, 1, 0, 0,
     )
     for seq = 1:4
         @test try_publish!(ring, CommandTag(HLP.COMMAND_ARM, 1, seq), arm)
@@ -145,7 +145,7 @@ end
     @test view.tag.kind == HLP.COMMAND_ARM && view.tag.sequence == 1
     got = payload(ArmCommand, ring, view)
     @test got == arm
-    @test got.tap_sample_shifts == (-2, 0, 2, 0, 0)
+    @test got.correlator_sample_offsets == (-2, 0, 2, 0, 0)
     commit!(ring, view)
     @test try_publish!(ring, CommandTag(HLP.COMMAND_RELEASE, 1, 5), ReleaseCommand())
     @test try_publish!(ring, CommandTag(HLP.COMMAND_SHUTDOWN, 0, 6), ShutdownCommand()) == false
@@ -156,12 +156,12 @@ end
     seg = create_segment(nothing, SegmentConfig(; channel_count = 2, bands = BANDS, event_capacity = 8))
     slot = snapshot_slot(seg, 2)
     @test isnothing(read_snapshot(slot))
-    state = EpochStateEvent(1500.0, 1.5, 123.5, 0.25, 2e4, 1499.0, 1.49, 48_000, 13, 0, 1,
-                            HLP.STATE_SYNC_FOUND | HLP.STATE_CODE_PHASE_ANCHORED)
-    write_snapshot!(slot, EventTag(HLP.EVENT_EPOCH_STATE, 2, 44_000; prn = 9), state)
+    state = LoopStateEvent(1500.0, 1.5, 123.5, 0.25, 2e4, 1499.0, 1.49, 48_000, 13, 0, 1,
+                            HLP.STATE_BIT_OR_SECONDARY_CODE_SYNCED | HLP.STATE_CODE_PHASE_KNOWN)
+    write_snapshot!(slot, EventTag(HLP.EVENT_LOOP_STATE, 2, 44_000; prn = 9), state)
     got = read_snapshot(slot)
     @test !isnothing(got)
-    @test got[1].prn == 9 && got[1].device_sample == 44_000
+    @test got[1].prn == 9 && got[1].sample_index == 44_000
     @test got[2] == state
     @test HLP.snapshot_sequence(slot) == 2
     # The other channel's slot is untouched.
@@ -169,7 +169,7 @@ end
     close(seg)
 end
 
-nav_solution(k; flags = HLP.NAV_RUNNING | HLP.NAV_SEEDED | HLP.NAV_VALID) = NavSolutionEvent(
+nav_solution(k; flags = HLP.NAV_RUNNING | HLP.NAV_SOLUTION_FROM_FILTER | HLP.NAV_VALID) = NavSolutionEvent(
     k, (3.9e6, 3.0e5, 5.0e6), (0.1, -0.2, 0.3), 0.03, 7_000_000 + k, 0.25, 4.5, 1.5, 0.0,
     (2.0f0, 1.8f0, 1.2f0, 1.0f0, 0.7f0), Int32(6), Int32(7), flags,
 )
@@ -196,13 +196,13 @@ end
     @test ring_capacity(ring) == 4
     @test peek!(ring, EventTag)[1] === :empty
     @test isnothing(read_nav_snapshot(seg))
-    epoch = 400_000
+    cycle_sample_index = 400_000
     for prn in (5, 9)
-        publish!(ring, EventTag(HLP.EVENT_NAV_SATELLITE, 0, epoch; prn),
+        publish!(ring, EventTag(HLP.EVENT_NAV_SATELLITE, 0, cycle_sample_index; prn),
                  NavSatelliteEvent(1, :GPSL1CA, (1.0, 2.0, 3.0), 0.07, 1.5, -0.1, 45.0, prn,
                                    HLP.NAV_SAT_TRACKED, HLP.NAV_NOT_RELEASED))
     end
-    publish_nav_solution!(seg, EventTag(HLP.EVENT_NAV_SOLUTION, 0, epoch), nav_solution(1))
+    publish_nav_solution!(seg, EventTag(HLP.EVENT_NAV_SOLUTION, 0, cycle_sample_index), nav_solution(1))
     kinds = UInt8[]
     prns = Int[]
     while true
@@ -210,11 +210,11 @@ end
         status === :empty && break
         @test lost == 0
         push!(kinds, view.tag.kind)
-        @test view.tag.channel == 0 && view.tag.device_sample == epoch
+        @test view.tag.channel == 0 && view.tag.sample_index == cycle_sample_index
         if view.tag.kind == HLP.EVENT_NAV_SATELLITE
             sat = payload(NavSatelliteEvent, ring, view)
             push!(prns, view.tag.prn)
-            @test sat.channel == view.tag.prn && sat.cycle == 1
+            @test sat.channel == view.tag.prn && sat.cycle_index == 1
         else
             @test payload(NavSolutionEvent, ring, view) == nav_solution(1)
         end
@@ -223,13 +223,13 @@ end
     @test kinds == [HLP.EVENT_NAV_SATELLITE, HLP.EVENT_NAV_SATELLITE, HLP.EVENT_NAV_SOLUTION]
     @test prns == [5, 9]
     tag, solution = read_nav_snapshot(seg)
-    @test tag.kind == HLP.EVENT_NAV_SOLUTION && tag.device_sample == epoch
+    @test tag.kind == HLP.EVENT_NAV_SOLUTION && tag.sample_index == cycle_sample_index
     @test solution == nav_solution(1)
     # The snapshot keeps the newest when the ring overruns.
     for k = 2:7
-        publish_nav_solution!(seg, EventTag(HLP.EVENT_NAV_SOLUTION, 0, k * epoch), nav_solution(k))
+        publish_nav_solution!(seg, EventTag(HLP.EVENT_NAV_SOLUTION, 0, k * cycle_sample_index), nav_solution(k))
     end
-    @test read_nav_snapshot(seg)[2].cycle == 7
+    @test read_nav_snapshot(seg)[2].cycle_index == 7
     status, view, lost = peek!(ring, EventTag)
     @test status === :lost && lost == 2
     # The channels' rings and snapshots are elsewhere.
@@ -255,14 +255,14 @@ end
                 status, view, l = peek!(ring, EventTag)
                 lost += Int(l)
                 status === :empty && continue
-                body = payload(RecordEvent, ring, view)
+                body = payload(IntegrationEvent, ring, view)
                 if isnothing(body)
                     torn_payload += 1
                 else
-                    # Every field of a record is derived from its index; a torn
+                    # Every field of an integration is derived from its index; a torn
                     # read would break the relation.
-                    k = Int(view.tag.device_sample ÷ 4000)
-                    body == record(k) || (torn += 1)
+                    k = Int(view.tag.sample_index ÷ 4000)
+                    body == integration(k) || (torn += 1)
                     seen += 1
                     checksum += real(body.prompt)
                 end
@@ -272,7 +272,7 @@ end
         end
         producer = Threads.@spawn begin
             for k = 1:n
-                publish!(ring, tag(k), record(k))
+                publish!(ring, tag(k), integration(k))
             end
         end
         wait(producer)
@@ -317,7 +317,7 @@ end
         while ring_available(ring) >= ring_capacity(ring) ÷ 2 && time() < deadline
             sleep(0.001)
         end
-        publish!(ring, tag(k), record(k))
+        publish!(ring, tag(k), integration(k))
     end
     loop_heartbeat!(seg)
     wait(child)
@@ -328,7 +328,7 @@ end
     @test cstatus === :ok
     @test cview.tag.kind == HLP.COMMAND_CONFIGURE && cview.tag.sequence == 77
     cfg = payload(ConfigureCommand, commands, cview)
-    @test cfg.epoch_length_samples == 4000 && cfg.commit_lead_samples == 2
+    @test cfg.nco_update_interval_samples == 4000 && cfg.nco_command_delay_samples == 2
     commit!(commands, cview)
     @test peek!(commands, CommandTag)[1] === :empty
     @test receiver_pid(seg) > 0

@@ -14,7 +14,7 @@ The two processes map one segment: a file, conventionally under `/dev/shm` on
 Linux. It holds a versioned header with the band table and both sides'
 heartbeats, a single-producer single-consumer command ring (receiver → loop),
 and per hardware channel an event ring (loop → receiver) of fixed-size tagged
-events plus a seqlock snapshot of the newest epoch state. A loop-wide nav ring
+events plus a seqlock snapshot of the newest loop state. A loop-wide nav ring
 and snapshot carry the navigation solution of a loop that runs vector
 tracking. Producers never
 block; consumers detect lost history from the sequence numbers. Base only,
@@ -28,10 +28,10 @@ const HLP = HardwareLoopProtocol
 # file path instead, which the receiver then opens with `attach_segment`.
 seg = create_segment(nothing, SegmentConfig(; channel_count = 6, bands = [BandEntry(:L1, 4e6)]))
 ring = event_ring(seg, 1)
-publish!(ring, EventTag(HLP.EVENT_RECORD, 1, 4000; prn = 7), RecordEvent(1.0 + 0im, 4000, 1, 0, 0.0, 0.0, 0.0))
+publish!(ring, EventTag(HLP.EVENT_INTEGRATION, 1, 4000; prn = 7), IntegrationEvent(1.0 + 0im, 4000, 1, 0, 0.0, 0.0, 0.0))
 
 status, view, lost = peek!(ring, EventTag)
-record = payload(RecordEvent, ring, view)
+integration = payload(IntegrationEvent, ring, view)
 commit!(ring, view)
 ```
 

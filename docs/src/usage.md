@@ -11,7 +11,7 @@ process calls `create_segment(path, config)` with a file path, conventionally
 under `/dev/shm` on Linux, and the receiver calls [`attach_segment`](@ref) with
 the same path.
 
-The constants for event, command and status kinds (`EVENT_RECORD`,
+The constants for event, command and status kinds (`EVENT_INTEGRATION`,
 `COMMAND_ARM`, `STATUS_ARMED`, ...) are not exported. Qualify them with the
 module name.
 
@@ -44,9 +44,9 @@ arm = ArmCommand(;
     carrier_doppler_hz = 1500.0,
     code_doppler_hz = 1.5,
     code_phase_chips = 100.5,
-    valid_at_sample = 40_000,
-    tap_sample_shifts = (-2, 0, 2),
-    num_taps = 3,
+    application_sample_index = 40_000,
+    correlator_sample_offsets = (-2, 0, 2),
+    num_correlators = 3,
     sampling_freq_hz = 4e6,
 )
 try_publish!(commands, CommandTag(HLP.COMMAND_ARM, 1, 1), arm)
@@ -75,8 +75,8 @@ events = event_ring(seg, 1)
 publish!(events, EventTag(HLP.EVENT_STATUS, 1, 40_000; prn = 7),
          StatusEvent(HLP.STATUS_ARMED, HLP.REJECT_NONE, 40_000, 1))
 for k = 1:3
-    publish!(events, EventTag(HLP.EVENT_RECORD, 1, 40_000 + 4000k; prn = 7),
-             RecordEvent(1.0 + 0im, 4000, 1, 0, 0.0, 1500.0, 1.5))
+    publish!(events, EventTag(HLP.EVENT_INTEGRATION, 1, 40_000 + 4000k; prn = 7),
+             IntegrationEvent(1.0 + 0im, 4000, 1, 0, 0.0, 1500.0, 1.5))
 end
 ring_available(events)
 ```
@@ -92,9 +92,9 @@ while true
     if view.tag.kind == HLP.EVENT_STATUS
         ack = payload(StatusEvent, events, view)
         println("status $(ack.code) for command $(ack.sequence)")
-    elseif view.tag.kind == HLP.EVENT_RECORD
-        record = payload(RecordEvent, events, view)
-        println("record ending at sample $(view.tag.device_sample): $(record.prompt)")
+    elseif view.tag.kind == HLP.EVENT_INTEGRATION
+        integration = payload(IntegrationEvent, events, view)
+        println("integration ending at sample $(view.tag.sample_index): $(integration.prompt)")
     end
     commit!(events, view)
 end
@@ -102,13 +102,13 @@ end
 
 ## Snapshots
 
-A reader that only needs the newest epoch state of a channel can read its
+A reader that only needs the newest loop state of a channel can read its
 snapshot slot instead of draining the event ring.
 
 ```@example usage
 slot = snapshot_slot(seg, 1)
-state = EpochStateEvent(1500.0, 1.5, 123.5, 0.25, 2e4, 1499.0, 1.49, 48_000, 13, 0, 1, 0)
-write_snapshot!(slot, EventTag(HLP.EVENT_EPOCH_STATE, 1, 44_000; prn = 7), state)
+state = LoopStateEvent(1500.0, 1.5, 123.5, 0.25, 2e4, 1499.0, 1.49, 48_000, 13, 0, 1, 0)
+write_snapshot!(slot, EventTag(HLP.EVENT_LOOP_STATE, 1, 44_000; prn = 7), state)
 tag, newest = read_snapshot(slot)
 newest.carrier_doppler_hz
 ```
@@ -120,21 +120,21 @@ with [`set_navigation_mode!`](@ref) before it marks itself running, and
 publishes every navigation cycle on the loop-wide [`nav_ring`](@ref): one
 [`NavSatelliteEvent`](@ref) per satellite the cycle knows, then the
 [`NavSolutionEvent`](@ref), which commits the cycle. The tags carry channel 0
-and the cycle's epoch. [`publish_nav_solution!`](@ref) also writes the
+and the cycle's sample index. [`publish_nav_solution!`](@ref) also writes the
 solution into the nav snapshot, which [`read_nav_snapshot`](@ref) reads. A loop
 in `NAV_NONE` (the default) publishes nothing there; the receiver decodes the
 bits and solves the position itself.
 
 ```@example usage
 set_navigation_mode!(seg, HLP.NAV_VECTOR)
-epoch = 400_000
-publish!(nav_ring(seg), EventTag(HLP.EVENT_NAV_SATELLITE, 0, epoch; prn = 7),
+cycle_sample_index = 400_000
+publish!(nav_ring(seg), EventTag(HLP.EVENT_NAV_SATELLITE, 0, cycle_sample_index; prn = 7),
          NavSatelliteEvent(1, :GPSL1CA, (2.0e7, 1.0e7, 1.2e7), 0.072, 1.5, -0.1, 45.0, 1,
                            HLP.NAV_SAT_TRACKED | HLP.NAV_SAT_IN_SOLUTION, HLP.NAV_NOT_RELEASED))
 solution = NavSolutionEvent(1, (3.9e6, 3.0e5, 5.0e6), (0.0, 0.0, 0.0), 0.03,
                             7_000_000, 0.25, 4.5, 1.5, 0.0, (2.0f0, 1.8f0, 1.2f0, 1.0f0, 0.7f0),
-                            Int32(5), Int32(6), HLP.NAV_RUNNING | HLP.NAV_SEEDED | HLP.NAV_VALID)
-publish_nav_solution!(seg, EventTag(HLP.EVENT_NAV_SOLUTION, 0, epoch), solution)
+                            Int32(5), Int32(6), HLP.NAV_RUNNING | HLP.NAV_SOLUTION_FROM_FILTER | HLP.NAV_VALID)
+publish_nav_solution!(seg, EventTag(HLP.EVENT_NAV_SOLUTION, 0, cycle_sample_index), solution)
 navigation_mode(seg), read_nav_snapshot(seg)[2].position_ecef_m
 ```
 

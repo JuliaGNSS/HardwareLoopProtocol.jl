@@ -77,11 +77,11 @@ set_receiver_pid!
 
 ```@docs
 EventTag
-RecordEvent
+IntegrationEvent
 BitEvent
-EpochStateEvent
+LoopStateEvent
 StatusEvent
-TapsEvent
+CorrelatorOutputsEvent
 ```
 
 ## Commands
