@@ -170,14 +170,14 @@ end
 end
 
 nav_solution(k; flags = HLP.NAV_RUNNING | HLP.NAV_SEEDED | HLP.NAV_VALID) = NavSolutionEvent(
-    k, (3.9e6, 3.0e5, 5.0e6), (0.1, -0.2, 0.3), 12.5, 1e-7, 7_000_000 + k, 0.25, 4.5, 1.5, 0.0,
+    k, (3.9e6, 3.0e5, 5.0e6), (0.1, -0.2, 0.3), 0.03, 7_000_000 + k, 0.25, 4.5, 1.5, 0.0,
     (2.0f0, 1.8f0, 1.2f0, 1.0f0, 0.7f0), Int32(6), Int32(7), flags,
 )
 
 @testset "Navigation events have the wire geometry" begin
-    @test sizeof(NavSolutionEvent) == 144
+    @test sizeof(NavSolutionEvent) == 136
     @test sizeof(NavSatelliteEvent) == 96
-    @test fieldoffset(NavSolutionEvent, 11) == 112    # dop
+    @test fieldoffset(NavSolutionEvent, 10) == 104    # dop
     @test fieldoffset(NavSatelliteEvent, 8) == 88     # channel
     @test sizeof(NavSolutionEvent) <= HLP.SNAPSHOT_BYTES - 8 - HLP.SLOT_TAG_BYTES
     sat = NavSatelliteEvent(3, :GPSL1CA, (1.0, 2.0, 3.0), 0.07, 1.5, -0.1, 45.0, 2,
