@@ -28,7 +28,7 @@ const HLP = HardwareLoopProtocol
 # file path instead, which the receiver then opens with `attach_segment`.
 seg = create_segment(nothing, SegmentConfig(; channel_count = 6, bands = [BandEntry(:L1, 4e6)]))
 ring = event_ring(seg, 1)
-publish!(ring, EventTag(HLP.EVENT_RECORD, 1, 4000; prn = 7), RecordEvent(1.0 + 0im, 4000, 1, 0, 0.0, 0.0, 0.0))
+publish!(ring, EventTag(HLP.EVENT_RECORD, 1, 4000; prn = 7), RecordEvent(1.0 + 0im, 4000, 1, 0, -Inf, 0.0, 0.0))
 
 status, view, lost = peek!(ring, EventTag)
 record = payload(RecordEvent, ring, view)

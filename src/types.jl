@@ -101,8 +101,6 @@ const RECORD_PRE_SYNC = UInt32(1)
 const RECORD_OVERLAY_WIPED = UInt32(2)
 "The first record after the channel was (re)armed."
 const RECORD_FIRST_AFTER_ARM = UInt32(4)
-"The record's C/N₀ field is meaningful (a noise density was available)."
-const RECORD_HAS_CN0 = UInt32(8)
 
 """
     RecordEvent
@@ -110,14 +108,16 @@ const RECORD_HAS_CN0 = UInt32(8)
 What `Tracking._apply_correlator_output` needs of a record and nothing more —
 the complete history the receiver's lock detectors and decoder rest on: the
 filtered prompt, the record's length, the blocks it credits to the bit clock,
-the C/N₀ after it, and the NCO words it really ran under.
+the C/N₀ after it, and the NCO words it really ran under. The C/N₀ is
+in dB-Hz, `-Inf` while the loop has no estimate (no noise density yet), as
+TrackingLoops' estimators give it.
 """
 struct RecordEvent
     prompt::ComplexF64
     integrated_samples::Int64
     block_credit::Int32
     flags::UInt32
-    cn0_linear_hz::Float64
+    cn0_dbhz::Float64
     applied_carrier_hz::Float64
     applied_code_hz::Float64
 end
@@ -152,15 +152,15 @@ const STATE_OBSERVATION_ONLY = UInt8(8)   # the fold stepped C/N₀ and bits onl
 "Newest wins": the channel's loop state at the common fold boundary the tag's
 `device_sample` names — the Dopplers, the absolute code phase referenced to that
 boundary, the carrier phase, the sync state and block count, and the NCO words
-in effect. PVT and the dashboard read this; the same value is written into the
-channel's snapshot slot.
+in effect. The C/N₀ is in dB-Hz, `-Inf` without an estimate. PVT and the
+dashboard read this; the same value is written into the channel's snapshot slot.
 """
 struct EpochStateEvent
     carrier_doppler_hz::Float64
     code_doppler_hz::Float64
     code_phase_chips::Float64
     carrier_phase_cycles::Float64
-    cn0_linear_hz::Float64
+    cn0_dbhz::Float64
     nco_carrier_hz::Float64
     nco_code_hz::Float64
     landing_sample::Int64

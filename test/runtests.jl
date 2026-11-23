@@ -4,7 +4,7 @@ const HLP = HardwareLoopProtocol
 
 const BANDS = [BandEntry(:L1, 4e6; intermediate_frequency_hz = -83.0), BandEntry(:L5, 25e6; rf_input = 2)]
 
-record(k) = RecordEvent(ComplexF64(k, -k), 4000, 1, HLP.RECORD_HAS_CN0, 1e4, 100.0 + k, 0.1)
+record(k) = RecordEvent(ComplexF64(k, -k), 4000, 1, HLP.RECORD_FIRST_AFTER_ARM, 40.0, 100.0 + k, 0.1)
 tag(k; channel = 1) = EventTag(HLP.EVENT_RECORD, channel, 4000k; band = 1, prn = 7)
 
 @testset "Fixed names round-trip" begin
@@ -156,7 +156,7 @@ end
     seg = create_segment(nothing, SegmentConfig(; channel_count = 2, bands = BANDS, event_capacity = 8))
     slot = snapshot_slot(seg, 2)
     @test isnothing(read_snapshot(slot))
-    state = EpochStateEvent(1500.0, 1.5, 123.5, 0.25, 2e4, 1499.0, 1.49, 48_000, 13, 0, 1,
+    state = EpochStateEvent(1500.0, 1.5, 123.5, 0.25, 43.0, 1499.0, 1.49, 48_000, 13, 0, 1,
                             HLP.STATE_SYNC_FOUND | HLP.STATE_CODE_PHASE_ANCHORED)
     write_snapshot!(slot, EventTag(HLP.EVENT_EPOCH_STATE, 2, 44_000; prn = 9), state)
     got = read_snapshot(slot)

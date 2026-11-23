@@ -76,7 +76,7 @@ publish!(events, EventTag(HLP.EVENT_STATUS, 1, 40_000; prn = 7),
          StatusEvent(HLP.STATUS_ARMED, HLP.REJECT_NONE, 40_000, 1))
 for k = 1:3
     publish!(events, EventTag(HLP.EVENT_RECORD, 1, 40_000 + 4000k; prn = 7),
-             RecordEvent(1.0 + 0im, 4000, 1, 0, 0.0, 1500.0, 1.5))
+             RecordEvent(1.0 + 0im, 4000, 1, 0, -Inf, 1500.0, 1.5))
 end
 ring_available(events)
 ```
@@ -107,7 +107,7 @@ snapshot slot instead of draining the event ring.
 
 ```@example usage
 slot = snapshot_slot(seg, 1)
-state = EpochStateEvent(1500.0, 1.5, 123.5, 0.25, 2e4, 1499.0, 1.49, 48_000, 13, 0, 1, 0)
+state = EpochStateEvent(1500.0, 1.5, 123.5, 0.25, 43.0, 1499.0, 1.49, 48_000, 13, 0, 1, 0)
 write_snapshot!(slot, EventTag(HLP.EVENT_EPOCH_STATE, 1, 44_000; prn = 7), state)
 tag, newest = read_snapshot(slot)
 newest.carrier_doppler_hz
