@@ -306,18 +306,16 @@ struct NavSolutionEvent
 end
 
 # Navigation-satellite flags.
-"A satellite is stepped on this PRN now."
-const NAV_SAT_TRACKED = UInt8(1)
 "Its bit clock has found the bit edges."
-const NAV_SAT_BIT_SYNCED = UInt8(2)
+const NAV_SAT_BIT_SYNCED = UInt8(1)
 "Synced and above the lock threshold."
-const NAV_SAT_IN_LOCK = UInt8(4)
+const NAV_SAT_IN_LOCK = UInt8(2)
 "In lock, decoded for positioning and healthy."
-const NAV_SAT_PVT_READY = UInt8(8)
+const NAV_SAT_PVT_READY = UInt8(4)
 "The cycle has it in the vector loop."
-const NAV_SAT_IN_VECTOR_LOOP = UInt8(16)
+const NAV_SAT_IN_VECTOR_LOOP = UInt8(8)
 "The cycle's solution used it; the position, time and residuals are meaningful."
-const NAV_SAT_IN_SOLUTION = UInt8(32)
+const NAV_SAT_IN_SOLUTION = UInt8(16)
 
 # Why a cycle released a satellite (mirrors TrackingLoops' `VTReleaseReason`).
 const NAV_NOT_RELEASED = UInt8(0)
@@ -328,9 +326,10 @@ const NAV_RELEASE_FALLBACK = UInt8(3)
 """
     NavSatelliteEvent
 
-One satellite as a navigation cycle saw it. A cycle publishes one per satellite
-it knows, before its `NavSolutionEvent`; the tag carries the satellite's `prn`
-and `band`, `channel` 0 and the cycle's epoch.
+One satellite as a navigation cycle saw it. A cycle publishes one for every
+satellite a channel of the loop steps, and for no other, before its
+`NavSolutionEvent`; the tag carries the satellite's `prn` and `band`, `channel`
+0 and the cycle's epoch.
 
   - `cycle` — the cycle it belongs to; `channel` — the loop channel that drives
     the satellite; `signal` — the signal's id;

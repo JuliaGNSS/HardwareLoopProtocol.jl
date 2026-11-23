@@ -303,7 +303,7 @@ snapshot_slot(seg::Segment, channel::Integer) = SnapshotSlot(
     nav_ring(seg) -> Ring
 
 The loop-wide navigation event ring (loop → receiver): per navigation cycle one
-[`NavSatelliteEvent`](@ref) for every satellite the cycle knows, then its
+[`NavSatelliteEvent`](@ref) for every satellite a channel steps, then its
 [`NavSolutionEvent`](@ref), which commits the cycle. Empty unless the loop runs
 in [`navigation_mode`](@ref) `NAV_VECTOR`.
 """

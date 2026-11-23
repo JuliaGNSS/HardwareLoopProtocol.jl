@@ -118,7 +118,7 @@ newest.carrier_doppler_hz
 A loop process that runs vector tracking writes `NAV_VECTOR` into the header
 with [`set_navigation_mode!`](@ref) before it marks itself running, and
 publishes every navigation cycle on the loop-wide [`nav_ring`](@ref): one
-[`NavSatelliteEvent`](@ref) per satellite the cycle knows, then the
+[`NavSatelliteEvent`](@ref) per satellite a channel steps, then the
 [`NavSolutionEvent`](@ref), which commits the cycle. The tags carry channel 0
 and the cycle's epoch. [`publish_nav_solution!`](@ref) also writes the
 solution into the nav snapshot, which [`read_nav_snapshot`](@ref) reads. A loop
@@ -130,7 +130,7 @@ set_navigation_mode!(seg, HLP.NAV_VECTOR)
 epoch = 400_000
 publish!(nav_ring(seg), EventTag(HLP.EVENT_NAV_SATELLITE, 0, epoch; prn = 7),
          NavSatelliteEvent(1, :GPSL1CA, (2.0e7, 1.0e7, 1.2e7), 0.072, 1.5, -0.1, 45.0, 1,
-                           HLP.NAV_SAT_TRACKED | HLP.NAV_SAT_IN_SOLUTION, HLP.NAV_NOT_RELEASED))
+                           HLP.NAV_SAT_IN_SOLUTION, HLP.NAV_NOT_RELEASED))
 solution = NavSolutionEvent(1, (3.9e6, 3.0e5, 5.0e6), (0.0, 0.0, 0.0), 0.03,
                             7_000_000, 0.25, 4.5, 1.5, 0.0, (2.0f0, 1.8f0, 1.2f0, 1.0f0, 0.7f0),
                             Int32(5), Int32(6), HLP.NAV_RUNNING | HLP.NAV_SEEDED | HLP.NAV_VALID)

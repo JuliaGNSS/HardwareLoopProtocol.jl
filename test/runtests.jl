@@ -181,7 +181,7 @@ nav_solution(k; flags = HLP.NAV_RUNNING | HLP.NAV_SEEDED | HLP.NAV_VALID) = NavS
     @test fieldoffset(NavSatelliteEvent, 8) == 88     # channel
     @test sizeof(NavSolutionEvent) <= HLP.SNAPSHOT_BYTES - 8 - HLP.SLOT_TAG_BYTES
     sat = NavSatelliteEvent(3, :GPSL1CA, (1.0, 2.0, 3.0), 0.07, 1.5, -0.1, 45.0, 2,
-                            HLP.NAV_SAT_TRACKED | HLP.NAV_SAT_IN_SOLUTION, HLP.NAV_NOT_RELEASED)
+                            HLP.NAV_SAT_IN_SOLUTION, HLP.NAV_NOT_RELEASED)
     @test sat.signal == FixedName(:GPSL1CA)
     @test sat.channel == 2 && sat.pad == 0
 end
@@ -200,7 +200,7 @@ end
     for prn in (5, 9)
         publish!(ring, EventTag(HLP.EVENT_NAV_SATELLITE, 0, epoch; prn),
                  NavSatelliteEvent(1, :GPSL1CA, (1.0, 2.0, 3.0), 0.07, 1.5, -0.1, 45.0, prn,
-                                   HLP.NAV_SAT_TRACKED, HLP.NAV_NOT_RELEASED))
+                                   0x00, HLP.NAV_NOT_RELEASED))
     end
     publish_nav_solution!(seg, EventTag(HLP.EVENT_NAV_SOLUTION, 0, epoch), nav_solution(1))
     kinds = UInt8[]
