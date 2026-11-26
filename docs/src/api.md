@@ -90,6 +90,7 @@ CorrelatorOutputsEvent
 CommandTag
 ArmCommand
 ConfigureCommand
+is_valid
 ReleaseCommand
 ShutdownCommand
 QueryStateCommand
