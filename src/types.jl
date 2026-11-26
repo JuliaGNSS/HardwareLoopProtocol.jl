@@ -427,9 +427,17 @@ with every Julia object replaced by a plain value — the signal and group ids a
 fixed names, the correlators' sample offsets from the prompt as a fixed tuple. The
 loop *executes* the arm; the allocation policy stays with the receiver.
 
-`carrier_loop_bandwidth_hz` / `code_loop_bandwidth_hz` of `0` mean the signal's
-defaults. The arm takes effect at `application_sample_index`, on the channel's
-band counter.
+The arm takes effect at `application_sample_index`, on the channel's band
+counter; the Dopplers and the code phase are valid there. What follows from the
+signal, the correlators, the band or the device is not sent: the loop process
+takes the carrier phase offset from GNSSSignals, the early–late spacing from
+`correlator_sample_offsets`, the sampling frequency, RF input and device from the
+`band`'s [`BandEntry`](@ref), and the replica's amplitudes (its carrier table's
+gain and its code table's RMS) from its driver, which knows the device's replica.
+Nor are loop bandwidths: they belong to the tracking loop the loop process was
+started with. For a noise
+reference (`signal_index = 0`) the loop process chooses the correlators itself
+and ignores `correlator_sample_offsets` and `num_correlators`.
 """
 struct ArmCommand
     signal::FixedName
@@ -442,27 +450,18 @@ struct ArmCommand
     application_sample_index::Int64
     correlator_sample_offsets::NTuple{5,Int32}
     num_correlators::Int32
-    el_sample_spacing::Int32
     band::Int32
-    replica_amplitude::Float64
-    code_amplitude::Float64
-    carrier_phase_offset::Float64
-    sampling_freq_hz::Float64
-    carrier_loop_bandwidth_hz::Float64
-    code_loop_bandwidth_hz::Float64
     secondary_code_mode::UInt8
-    rf_input::UInt8
-    device_index::UInt8
     want_correlator_outputs::UInt8
-    pad::UInt32
+    pad::UInt16
 end
 
 """
     ArmCommand(; signal, prn, carrier_doppler_hz, code_doppler_hz, code_phase_chips,
-               application_sample_index, correlator_sample_offsets, num_correlators, sampling_freq_hz, kwargs...)
+               application_sample_index, correlator_sample_offsets, num_correlators, kwargs...)
 
 Keyword form with the receiver's usual defaults: `group_key = signal`,
-`signal_index = 1`, one band and RF input, unit amplitudes, no correlator outputs published.
+`signal_index = 1`, the first band, no correlator outputs published.
 """
 function ArmCommand(;
     signal,
@@ -473,19 +472,10 @@ function ArmCommand(;
     application_sample_index::Integer,
     correlator_sample_offsets,
     num_correlators::Integer,
-    sampling_freq_hz::Real,
     group_key = signal,
     signal_index::Integer = 1,
-    el_sample_spacing::Integer = 0,
     band::Integer = 1,
-    replica_amplitude::Real = 1.0,
-    code_amplitude::Real = 1.0,
-    carrier_phase_offset::Real = 0.0,
-    carrier_loop_bandwidth_hz::Real = 0.0,
-    code_loop_bandwidth_hz::Real = 0.0,
     secondary_code_mode::Integer = SECONDARY_CODE_LOOP_WIPES,
-    rf_input::Integer = 1,
-    device_index::Integer = 1,
     want_correlator_outputs::Bool = false,
 )
     offsets = ntuple(i -> i <= length(correlator_sample_offsets) ? Int32(correlator_sample_offsets[i]) : Int32(0), Val(5))
@@ -500,19 +490,10 @@ function ArmCommand(;
         Int64(application_sample_index),
         offsets,
         Int32(num_correlators),
-        Int32(el_sample_spacing),
         Int32(band),
-        Float64(replica_amplitude),
-        Float64(code_amplitude),
-        Float64(carrier_phase_offset),
-        Float64(sampling_freq_hz),
-        Float64(carrier_loop_bandwidth_hz),
-        Float64(code_loop_bandwidth_hz),
         UInt8(secondary_code_mode),
-        UInt8(rf_input),
-        UInt8(device_index),
         UInt8(want_correlator_outputs),
-        UInt32(0),
+        0x0000,
     )
 end
 
