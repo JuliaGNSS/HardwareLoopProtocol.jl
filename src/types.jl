@@ -462,6 +462,9 @@ end
 
 Keyword form with the receiver's usual defaults: `group_key = signal`,
 `signal_index = 1`, the first band, no correlator outputs published.
+Throws an `ArgumentError` for more than five correlator sample offsets and, unless
+`signal_index = 0` (a noise reference), for a `num_correlators` outside one up to
+the number of offsets given.
 """
 function ArmCommand(;
     signal,
@@ -478,6 +481,10 @@ function ArmCommand(;
     secondary_code_mode::Integer = SECONDARY_CODE_LOOP_WIPES,
     want_correlator_outputs::Bool = false,
 )
+    length(correlator_sample_offsets) <= 5 ||
+        throw(ArgumentError("an arm carries at most 5 correlator sample offsets, got $(length(correlator_sample_offsets))"))
+    signal_index == 0 || 1 <= num_correlators <= length(correlator_sample_offsets) ||
+        throw(ArgumentError("num_correlators = $num_correlators, but $(length(correlator_sample_offsets)) correlator sample offsets given"))
     offsets = ntuple(i -> i <= length(correlator_sample_offsets) ? Int32(correlator_sample_offsets[i]) : Int32(0), Val(5))
     ArmCommand(
         FixedName(signal),

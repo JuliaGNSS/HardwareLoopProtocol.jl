@@ -36,6 +36,17 @@ end
     @test HLP.layout_hash() != HLP._fnv1a_mix(0xcbf29ce484222325, 1)
 end
 
+@testset "An arm refuses correlator offsets it cannot carry" begin
+    arm(; kwargs...) = ArmCommand(; signal = :GPSL1CA, prn = 7, carrier_doppler_hz = 0.0, code_doppler_hz = 0.0,
+        code_phase_chips = 0.0, application_sample_index = 0, kwargs...)
+    @test arm(; correlator_sample_offsets = (-2, 0, 2), num_correlators = 3).num_correlators == 3
+    @test_throws ArgumentError arm(; correlator_sample_offsets = (-3, -2, -1, 0, 1, 2), num_correlators = 5)
+    @test_throws ArgumentError arm(; correlator_sample_offsets = (-2, 0, 2), num_correlators = 4)
+    @test_throws ArgumentError arm(; correlator_sample_offsets = (-2, 0, 2), num_correlators = 0)
+    # A noise reference's correlators are the loop process's choice.
+    @test arm(; correlator_sample_offsets = (), num_correlators = 0, signal_index = 0).signal_index == 0
+end
+
 @testset "A configure command sets exactly the fields it is given" begin
     cfg = ConfigureCommand(; num_code_periods_to_integrate = HLP.INTEGRATE_WHOLE_BIT, event_flags = 0)
     @test cfg.set_fields == HLP.CONFIGURE_SET_NUM_CODE_PERIODS_TO_INTEGRATE | HLP.CONFIGURE_SET_EVENT_FLAGS
