@@ -1,0 +1,120 @@
+# Constants
+
+The wire's codes and flags. They are not exported: write them qualified, as listed.
+
+## Events
+
+```@docs
+HardwareLoopProtocol.EVENT_INTEGRATION
+HardwareLoopProtocol.EVENT_BIT
+HardwareLoopProtocol.EVENT_LOOP_STATE
+HardwareLoopProtocol.EVENT_STATUS
+HardwareLoopProtocol.EVENT_CORRELATOR_OUTPUTS
+HardwareLoopProtocol.EVENT_NAV_SOLUTION
+HardwareLoopProtocol.EVENT_NAV_SATELLITE
+```
+
+## Integration flags
+
+```@docs
+HardwareLoopProtocol.INTEGRATION_SECONDARY_CODE_WIPED
+HardwareLoopProtocol.INTEGRATION_FIRST_AFTER_ARM
+```
+
+## Loop-state flags
+
+```@docs
+HardwareLoopProtocol.STATE_BIT_OR_SECONDARY_CODE_SYNCED
+HardwareLoopProtocol.STATE_BIT_EDGE_KNOWN
+HardwareLoopProtocol.STATE_CODE_PHASE_KNOWN
+HardwareLoopProtocol.STATE_LOOP_OPEN
+```
+
+## Status codes
+
+```@docs
+HardwareLoopProtocol.STATUS_ARMED
+HardwareLoopProtocol.STATUS_ARM_REJECTED
+HardwareLoopProtocol.STATUS_RELEASED
+HardwareLoopProtocol.STATUS_HISTORY_LOST
+HardwareLoopProtocol.STATUS_SYNC_LOST
+HardwareLoopProtocol.STATUS_CHANNEL_STATE
+HardwareLoopProtocol.STATUS_CONFIGURED
+HardwareLoopProtocol.STATUS_SHUTDOWN
+HardwareLoopProtocol.STATUS_DEVICE_FAULT
+HardwareLoopProtocol.STATUS_COMMAND_REJECTED
+```
+
+## Rejection reasons
+
+```@docs
+HardwareLoopProtocol.REJECT_NONE
+HardwareLoopProtocol.REJECT_NO_SUCH_CHANNEL
+HardwareLoopProtocol.REJECT_CHANNEL_BUSY
+HardwareLoopProtocol.REJECT_UNSUPPORTED_SIGNAL
+HardwareLoopProtocol.REJECT_BAD_CONFIG
+HardwareLoopProtocol.REJECT_DEVICE_ERROR
+HardwareLoopProtocol.REJECT_UNKNOWN_COMMAND
+HardwareLoopProtocol.REJECT_NOT_ARMED
+```
+
+## Correlator outputs
+
+```@docs
+HardwareLoopProtocol.MAX_CORRELATOR_OUTPUTS
+HardwareLoopProtocol.EVENTS_CORRELATOR_OUTPUTS
+HardwareLoopProtocol.EVENTS_ALL
+```
+
+## Navigation
+
+```@docs
+HardwareLoopProtocol.NAV_NONE
+HardwareLoopProtocol.NAV_VECTOR
+HardwareLoopProtocol.NAV_VECTOR_TRACKING_ACTIVE
+HardwareLoopProtocol.NAV_SOLUTION_FROM_NAV_FILTER
+HardwareLoopProtocol.NAV_FELL_BACK
+HardwareLoopProtocol.NAV_RELEASED
+HardwareLoopProtocol.NAV_VALID
+HardwareLoopProtocol.NAV_TIME_VALID
+HardwareLoopProtocol.NAV_SAT_BIT_OR_SECONDARY_CODE_SYNCED
+HardwareLoopProtocol.NAV_SAT_MEASUREMENT_READY
+HardwareLoopProtocol.NAV_SAT_POSITIONING_READY
+HardwareLoopProtocol.NAV_SAT_VECTOR_CONTROLLED
+HardwareLoopProtocol.NAV_SAT_IN_SOLUTION
+HardwareLoopProtocol.NAV_NOT_RELEASED
+HardwareLoopProtocol.NAV_RELEASE_INELIGIBLE
+HardwareLoopProtocol.NAV_RELEASE_BELOW_HORIZON
+HardwareLoopProtocol.NAV_RELEASE_FALLBACK
+```
+
+## Commands
+
+```@docs
+HardwareLoopProtocol.COMMAND_ARM
+HardwareLoopProtocol.COMMAND_RELEASE
+HardwareLoopProtocol.COMMAND_CONFIGURE
+HardwareLoopProtocol.COMMAND_SHUTDOWN
+HardwareLoopProtocol.COMMAND_QUERY_STATE
+HardwareLoopProtocol.SECONDARY_CODE_LOOP_WIPES
+HardwareLoopProtocol.SECONDARY_CODE_DEVICE_WIPES
+HardwareLoopProtocol.CONFIGURE_SET_NCO_UPDATE_INTERVAL
+HardwareLoopProtocol.CONFIGURE_SET_MAX_COHERENT_INTEGRATION_TIME
+HardwareLoopProtocol.CONFIGURE_SET_NCO_COMMAND_DELAY
+HardwareLoopProtocol.CONFIGURE_SET_NUM_CODE_PERIODS_TO_INTEGRATE
+HardwareLoopProtocol.CONFIGURE_SET_NOISE_REARM_NCO_UPDATES
+HardwareLoopProtocol.CONFIGURE_SET_MAX_BACKLOG_NCO_UPDATES
+HardwareLoopProtocol.CONFIGURE_SET_EVENT_FLAGS
+HardwareLoopProtocol.INTEGRATE_WHOLE_BIT
+```
+
+## Segment
+
+```@docs
+HardwareLoopProtocol.MAX_BANDS
+HardwareLoopProtocol.LOOP_STATE_STARTING
+HardwareLoopProtocol.LOOP_STATE_RUNNING
+HardwareLoopProtocol.LOOP_STATE_STOPPING
+HardwareLoopProtocol.LOOP_STATE_STOPPED
+HardwareLoopProtocol.LOOP_STATE_FAULT
+```

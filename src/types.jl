@@ -186,25 +186,43 @@ struct LoopStateEvent
 end
 
 # Status codes.
+"The arm took effect at `sample_index`; the event carries the channel's seed."
 const STATUS_ARMED = UInt32(1)
+"The arm was refused, or the device could not take it; `reason` says why."
 const STATUS_ARM_REJECTED = UInt32(2)
+"The channel was released."
 const STATUS_RELEASED = UInt32(3)
+"The receiver fell behind the ring: events from `sequence` on were overwritten."
 const STATUS_HISTORY_LOST = UInt32(4)
+"The bit synchronizer lost its sync and searches anew: the bit edge and the secondary code phase are unknown again."
 const STATUS_SYNC_LOST = UInt32(5)
+"The channel's seed, in answer to a `COMMAND_QUERY_STATE` (`REJECT_NOT_ARMED` while the arm is pending)."
 const STATUS_CHANNEL_STATE = UInt32(6)
+"A configure command was applied."
 const STATUS_CONFIGURED = UInt32(7)
+"The loop process is shutting down."
 const STATUS_SHUTDOWN = UInt32(8)
+"The device reported a fault."
 const STATUS_DEVICE_FAULT = UInt32(9)
+"A command other than an arm was refused; `reason` says why."
 const STATUS_COMMAND_REJECTED = UInt32(10)
 
 # Rejection reasons.
+"No rejection."
 const REJECT_NONE = UInt32(0)
+"The command addresses a channel the loop does not have."
 const REJECT_NO_SUCH_CHANNEL = UInt32(1)
+"The channel holds a noise reference, which only a release frees."
 const REJECT_CHANNEL_BUSY = UInt32(2)
+"The loop process does not serve the signal, or not in this role."
 const REJECT_UNSUPPORTED_SIGNAL = UInt32(3)
+"A field is out of range: a band the loop does not serve, a correlator count, a configure field."
 const REJECT_BAD_CONFIG = UInt32(4)
+"The device could not carry out the command."
 const REJECT_DEVICE_ERROR = UInt32(5)
+"The command kind is not one of the `COMMAND_*` codes."
 const REJECT_UNKNOWN_COMMAND = UInt32(6)
+"The channel is not armed."
 const REJECT_NOT_ARMED = UInt32(7)
 
 """
@@ -337,9 +355,13 @@ const NAV_SAT_VECTOR_CONTROLLED = UInt8(8)
 const NAV_SAT_IN_SOLUTION = UInt8(16)
 
 # Why an update released a satellite (mirrors TrackingLoops' `VectorTrackingReleaseReason`).
+"The update did not release the satellite."
 const NAV_NOT_RELEASED = UInt8(0)
+"Released: no longer tracked, decoded for positioning or healthy (`VT_INELIGIBLE`)."
 const NAV_RELEASE_INELIGIBLE = UInt8(1)
+"Released: below the horizon at the solution the update started from (`VT_BELOW_HORIZON`)."
 const NAV_RELEASE_BELOW_HORIZON = UInt8(2)
+"Released: vector tracking stopped (`VT_FALLBACK`)."
 const NAV_RELEASE_FALLBACK = UInt8(3)
 
 """
@@ -390,10 +412,15 @@ NavSatelliteEvent(update_index, signal, satellite_position_ecef_m, transmit_time
 
 # ── Commands (receiver → loop) ───────────────────────────────────────────────
 
+"Command kind of an [`ArmCommand`](@ref)."
 const COMMAND_ARM = UInt8(1)
+"Command kind of a [`ReleaseCommand`](@ref)."
 const COMMAND_RELEASE = UInt8(2)
+"Command kind of a [`ConfigureCommand`](@ref)."
 const COMMAND_CONFIGURE = UInt8(3)
+"Command kind of a [`ShutdownCommand`](@ref)."
 const COMMAND_SHUTDOWN = UInt8(4)
+"Command kind of a [`QueryStateCommand`](@ref)."
 const COMMAND_QUERY_STATE = UInt8(5)
 
 """

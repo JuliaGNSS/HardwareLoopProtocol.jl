@@ -13,6 +13,7 @@ makedocs(
         "Home" => "index.md",
         "Usage" => "usage.md",
         "API Reference" => "api.md",
+        "Constants" => "constants.md",
         "Glossary" => "glossary.md",
     ],
     checkdocs = :exports,

@@ -15,6 +15,7 @@
 const HEADER_BYTES = 4096
 const RING_HEADER_BYTES = 128
 const SNAPSHOT_BYTES = 256
+"How many bands a segment's band table holds."
 const MAX_BANDS = 8
 const CACHE_LINE = 64
 const PAGE = 4096
@@ -51,10 +52,15 @@ const OFF_BAND_TABLE = 2048
 const BAND_ENTRY_BYTES = 64
 
 # Loop states.
+"Loop state: the segment exists, the loop process is not running yet."
 const LOOP_STATE_STARTING = UInt64(0)
+"Loop state: the loop process is running."
 const LOOP_STATE_RUNNING = UInt64(1)
+"Loop state: the loop process is shutting down."
 const LOOP_STATE_STOPPING = UInt64(2)
+"Loop state: the loop process has stopped."
 const LOOP_STATE_STOPPED = UInt64(3)
+"Loop state: the loop process stopped on a fault."
 const LOOP_STATE_FAULT = UInt64(4)
 
 # Slot geometry: a sequence word, a 16-byte tag, then the payload.
