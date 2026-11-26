@@ -1,5 +1,5 @@
 # A second process: attach to the segment named on the command line, consume
-# `expected` record events from channel 1 (counting what was lost), answer every
+# `expected` integration events from channel 1 (counting what was lost), answer every
 # command with a status event, and report on stdout.
 using HardwareLoopProtocol
 const HLP = HardwareLoopProtocol
@@ -24,7 +24,7 @@ while seen + lost_total < expected && time_ns() < deadline
         receiver_heartbeat!(seg)
         continue
     end
-    body = payload(RecordEvent, ring, view)
+    body = payload(IntegrationEvent, ring, view)
     if isnothing(body)
         global lost_total += 1
     else

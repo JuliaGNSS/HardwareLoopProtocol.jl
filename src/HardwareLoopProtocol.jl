@@ -17,8 +17,8 @@ syscalls on the hot path, no futex. The segment holds
     per-satellite events, plus a **seqlock snapshot** of the newest solution,
     used when the loop runs vector tracking ([`navigation_mode`](@ref));
   - per hardware channel one **event ring** (loop → receiver) of fixed-size
-    tagged events in loop order — records, bits, epoch states, status — plus a
-    **seqlock snapshot** of the newest epoch state for readers that only want
+    tagged events in loop order — integrations, bits, loop states, status — plus a
+    **seqlock snapshot** of the newest loop state for readers that only want
     "now".
 
 Every ring is single-producer single-consumer. Producers never block: a full
@@ -43,11 +43,11 @@ export PROTOCOL_VERSION,
     NAME_BYTES,
     FixedName,
     EventTag,
-    RecordEvent,
+    IntegrationEvent,
     BitEvent,
-    EpochStateEvent,
+    LoopStateEvent,
     StatusEvent,
-    TapsEvent,
+    CorrelatorOutputsEvent,
     NavSolutionEvent,
     NavSatelliteEvent,
     CommandTag,

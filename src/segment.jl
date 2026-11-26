@@ -292,7 +292,7 @@ end
 "Hardware channel `channel`'s event ring (loop → receiver)."
 event_ring(seg::Segment, channel::Integer) = _ring_at(_channel_base(seg, channel))
 
-"Hardware channel `channel`'s epoch-state snapshot."
+"Hardware channel `channel`'s loop-state snapshot."
 snapshot_slot(seg::Segment, channel::Integer) = SnapshotSlot(
     _channel_base(seg, channel) + RING_HEADER_BYTES + event_capacity(seg) * EVENT_SLOT_BYTES,
 )
@@ -302,9 +302,9 @@ snapshot_slot(seg::Segment, channel::Integer) = SnapshotSlot(
 """
     nav_ring(seg) -> Ring
 
-The loop-wide navigation event ring (loop → receiver): per navigation cycle one
+The loop-wide navigation event ring (loop → receiver): per navigation update one
 [`NavSatelliteEvent`](@ref) for every satellite a channel steps, then its
-[`NavSolutionEvent`](@ref), which commits the cycle. Empty unless the loop runs
+[`NavSolutionEvent`](@ref), which commits the update. Empty unless the loop runs
 in [`navigation_mode`](@ref) `NAV_VECTOR`.
 """
 nav_ring(seg::Segment) = _ring_at(seg.base + Int(_u64(seg, OFF_NAV_RING)))
@@ -315,7 +315,7 @@ nav_snapshot_slot(seg::Segment) = SnapshotSlot(seg.base + Int(_u64(seg, OFF_NAV_
 """
     publish_nav_solution!(seg, tag::EventTag, solution::NavSolutionEvent)
 
-Publish a navigation cycle's solution: onto the nav ring, after the cycle's
+Publish a navigation update's solution: onto the nav ring, after the update's
 satellite events, and into the nav snapshot.
 """
 function publish_nav_solution!(seg::Segment, tag::EventTag, solution::NavSolutionEvent)
